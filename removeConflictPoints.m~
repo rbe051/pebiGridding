@@ -1,0 +1,36 @@
+function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
+    distance = pdist(Pts)';
+    rm = distLessThan(distance, gridSpacing);
+    toClose = find(rm,1);
+    
+    rm = squareform(rm);
+    One = ones(size(rm,1), 1);
+    sumShort = rm*One;
+
+    [~, Is] = sort(sumShort,'descend');
+    [~, Ii ] = sort(priIndex(Is), 'ascend');
+    
+    removed = zeros(size(Pts, 1), 1);
+    i = 0;
+    while ~isempty(toClose)
+        removePoint = Is(Ii(1));
+        removed(removePoint) = 1;
+        toClose = toClose~=removePoint;
+        One(
+        sumShort = rm*One;
+        [~, Is] = sort(sumShort, 'descend');
+        [~, Ii] = sort(priIndex(Is), 'ascend');
+
+    end
+    Pts = Pts(~removed,:);
+end
+
+
+function [arr] = distLessThan(distance, b)
+    n = length(distance)
+    m = length(b)
+    k = 1:n
+    j = ceil((2*m-1)/2 - 0.5*sqrt((2*m-1)^2 - 8*k))
+    i = k + j - (j-1).*(m-j/2)
+    arr = distance < max(b(i), b(j))
+end
