@@ -11,4 +11,7 @@ Gp = compositeGridPEBI([15, 30], [1, 2], 'lines', l);
 plotGrid(Gp, 'faceColor', 'none')
 axis equal tight
 hold on
-plot(l(:, 1), l(:, 2));
+for i = 1:numel(l)
+   line = l{i};
+    plot(line(:, 1), line(:, 2));
+end

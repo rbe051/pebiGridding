@@ -15,29 +15,9 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     circleFactor = opt.circleFactor;
     assert(0.5<circleFactor && circleFactor < 1)
     
-    vx = 0:dx:pdims(1);
-    vy = 0:dy:pdims(2);
-    [X, Y] = meshgrid(vx, vy);
-
-
-    [ii, jj] = meshgrid(1:nx, 1:ny);
-
-    nedge = opt.padding;
-    exterior = (ii <= nedge | ii > nx - nedge) | ...
-               (jj <= nedge | jj > ny - nedge);
-
-    interior = ~exterior;
-
-    X(interior) = X(interior);
-    Y(interior) = Y(interior);
-
-    Pts = [X(:), Y(:)];
-    Pts0 = Pts;
-
-
-    priIndex = ones(size(Pts, 1), 1);
-    gridSpacing = sqrt(dx^2+dy^2)/2*ones(size(Pts,1),1);
-    
+    Pts = [];
+    priIndex = [];
+    gridSpacing = [];
     faultType = zeros(size(Pts, 1), 1);
     for i = 1:numel(opt.lines)
         l = opt.lines{i};
@@ -49,7 +29,7 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
         v = p2 - p1;
         
         dists = norm(v, 2)/norm([dx, dy], 2);
-        dists = 2*max(ceil(dists), 2);
+        dists = max(ceil(dists), 2);
         
         % Expand into a vector
         l = p1;
@@ -73,11 +53,32 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
         nl = 2*size(left, 1);
         Pts = [Pts;left;right];
         priIndex = [priIndex; (2+i)*ones(nl,1)];
-        gridSpacing = [gridSpacing; fracture_radius*ones(nl,1)];
-        Pts = emptyCircCircProperty(Pts, left, right, fracture_radius);
+        gridSpacing = [gridSpacing; (2-100*eps)*fracture_radius*ones(nl,1)];
         plot(left(:,1),left(:,2), 'b.');
         plot(right(:,1), right(:,2), 'r.');
     end
+    
+    vx = 0:dx:pdims(1);
+    vy = 0:dy:pdims(2);
+    [X, Y] = meshgrid(vx, vy);
+
+
+    [ii, jj] = meshgrid(1:nx, 1:ny);
+
+    nedge = opt.padding;
+    exterior = (ii <= nedge | ii > nx - nedge) | ...
+               (jj <= nedge | jj > ny - nedge);
+
+    interior = ~exterior;
+
+    X(interior) = X(interior);
+    Y(interior) = Y(interior);
+
+    resPts = [X(:), Y(:)];
+    Pts = [Pts;resPts];
+    priIndex = [priIndex; ones(size(Pts, 1), 1)];
+    gridSpacing = [gridSpacing; (min(dx,dy)-100*eps)*ones(size(Pts,1),1)];
+    
     
     [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex);
  
@@ -94,14 +95,6 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     end
 end
 
-function [pts] = emptyCircCircProperty(pts, Il, Ir, r)
-    assert(all(size(Il)==size(Ir)));
-    
-    n = size(Il,1);
-    for i=1:n
-        
-    end
-end
 
 function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
     Ic = 1:size(Pts, 1);
