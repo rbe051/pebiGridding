@@ -126,12 +126,12 @@ function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
     Ic = findToClose(dlt);
     
     while length(Ic)>1
-        sumToClose = sumToClosePts(dlt);
-        sumToClose = sumToClose(find(sumToClose));
-        [~, Is] = sort(sumToClose,'descend');
-        [~, Ii ] = sort(priIndex(Ic(Is)), 'ascend');
+        %sumToClose = sumToClosePts(dlt);
+        %sumToClose = sumToClose(find(sumToClose));
+        %[~, Is] = sort(sumToClose,'descend');
+        [~, Ii ] = sort(priIndex(Ic), 'ascend');
 
-        removePoint = Ic(Is(Ii(1)));
+        removePoint = Ic(Ii(1));
         removed(removePoint) = 1;        
         Ic = Ic(Ic~=removePoint);
         ptsToClose = Pts(Ic,:);

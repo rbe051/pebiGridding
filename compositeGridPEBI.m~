@@ -46,9 +46,10 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
         ptGrSp = zeros(numOfFracLine-1, 1);
         for j=1:numOfFracLine-1
             lineLength = norm(fracLine(j+1,:) - fracLine(j,:));
-            %Because the line lengt
+            %Because the line lengths are not completely uniform we have to
+            %calculate this for each segment.
             fractureRadius = lineLength/2*sqrt(4*circleFactor^2 -1);
-            n1 = (fracLine(j+1,:)-fracLine(j,:))/lineLength;      %Unit vector
+            n1 = (fracLine(j+1,:)-fracLine(j,:))/lineLength;   %Unit vector
             n2 = [-n1(2), n1(1)];                              %Unit normal
             left(j,:) = fracLine(j,:) + lineLength/2*n1 + fractureRadius*n2;
             right(j,:) = fracLine(j,:) + lineLength/2*n1 - fractureRadius*n2;
@@ -58,9 +59,9 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
         nl = 2*(numOfFracLine-1);
         Pts = [Pts;left;right];
         priIndex = [priIndex; (2+i)*ones(nl,1)];
-        gridSpacing = [gridSpacing; ptGrSp;ptGrSp]; %(2-0.1*fracDs)*fractureRadius*ones(nl,1)];
-        plot(left(:,1),left(:,2), 'b.');
-        plot(right(:,1), right(:,2), 'r.');
+        gridSpacing = [gridSpacing; ptGrSp; ptGrSp];
+        plot(left(:,1),left(:,2), 'k.');
+        plot(right(:,1), right(:,2), 'k.');
     end
     
     vx = 0:dx:pdims(1);
@@ -82,7 +83,7 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     resPts = [X(:), Y(:)];
     Pts = [Pts;resPts];
     priIndex = [priIndex; ones(size(Pts, 1), 1)];
-    gridSpacing = [gridSpacing; (min(dx,dy)-100*eps)*ones(size(Pts,1),1)];
+    gridSpacing = [gridSpacing; (1-10^-6)*min(dx,dy)*ones(size(Pts,1),1)];
     
     
     [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex);
@@ -92,7 +93,6 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     G = triangleGrid(Pts, Tri.ConnectivityList);
 
     G = pebi(G);
-    plot(Pts(:,1),Pts(:,2), 'o')
 
     varargout{1} = G;
     if nargout > 1
@@ -126,12 +126,12 @@ function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
     Ic = findToClose(dlt);
     
     while length(Ic)>1
-        sumToClose = sumToClosePts(dlt);
-        sumToClose = sumToClose(find(sumToClose));
-        [~, Is] = sort(sumToClose,'descend');
-        [~, Ii ] = sort(priIndex(Ic(Is)), 'ascend');
+        %sumToClose = sumToClosePts(dlt);
+        %sumToClose = sumToClose(find(sumToClose));
+        %[~, Is] = sort(sumToClose,'descend');
+        [~, Ii ] = sort(priIndex(Ic), 'ascend');
 
-        removePoint = Ic(Is(Ii(1)));
+        removePoint = Ic(Ii(1)));
         removed(removePoint) = 1;        
         Ic = Ic(Ic~=removePoint);
         ptsToClose = Pts(Ic,:);

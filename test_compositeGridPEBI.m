@@ -1,6 +1,6 @@
 
 %% Fault honoring pebi / triangle grids
-close all
+
 x = 0.2:0.05:0.8;
 l = {[0.65,0.1;0.65,0.926],...
      [0.2,0.175; 0.875,0.875], ...
