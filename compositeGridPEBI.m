@@ -8,54 +8,60 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     
     opt = struct('padding', 1, ...
                  'lines', {{}}, ...
+                 'fracGridSize', -1, ...
                  'circleFactor', 0.6);
          
     opt = merge_options(opt, varargin{:});
 
     circleFactor = opt.circleFactor;
+    fracDs = opt.fracGridSize;
+    if fracDs == -1
+        fracDs = min(dx,dy);
+    end
     assert(0.5<circleFactor && circleFactor < 1)
+    assert(0<fracDs)
     
     Pts = [];
     priIndex = [];
     gridSpacing = [];
     faultType = zeros(size(Pts, 1), 1);
+    
     for i = 1:numel(opt.lines)
-        l = opt.lines{i};
+        fracLine = opt.lines{i};
         
-        assert(all(size(l) == [2 2]));
-        p1 = l(1, :);
-        p2 = l(2, :);
+        assert(all(size(fracLine,2) == 2));
+        assert(all(size(fracLine,1) > 1));
         
-        v = p2 - p1;
         
-        dists = norm(v, 2)/norm([dx, dy], 2);
-        dists = max(ceil(dists), 2);
+        [fracLine, fracDs] = eqInterpret(fracLine, fracDs);
+        %This is equidistante if you follow the line described by fracLine,
+        %but the new points may be a bit to close if the fracture has
+        %sharp corners and/or you upsample the line.
         
-        % Expand into a vector
-        l = p1;
-        for j = 1:dists
-            l = [l; p1 + v*j/dists]; % Should move this into the nex foor loop
-        end
+        numOfFracLine = size(fracLine,1);
         
         % Create left vector and right vector(to contain fracture points).
-        left = zeros(dists, 2);
-        right = zeros(dists, 2);
-
-        for j=1:dists
-            line_length = norm(l(j+1,:)-l(j,:), 2);   %||p_(j+1) - p_j||
-            n1 = (l(j+1,:)-l(j,:))/line_length;       %Unit vector
-            n2 = [-n1(2), n1(1)];                     %Unit normal
-            fracture_radius = line_length/2*sqrt(4*circleFactor^2 -1);  %% OBS! Should make sure fracture points are equaly spaced.
-            left(j,:) = l(j,:) + line_length/2*n1 + fracture_radius*n2;
-            right(j,:) = l(j,:) + line_length/2*n1 - fracture_radius*n2;
+        left = zeros(numOfFracLine-1, 2);
+        right = zeros(numOfFracLine-1, 2);
+        ptGrSp = zeros(numOfFracLine-1, 1);
+        for j=1:numOfFracLine-1
+            lineLength = norm(fracLine(j+1,:) - fracLine(j,:));
+            %Because the line lengths are not completely uniform we have to
+            %calculate this for each segment.
+            fractureRadius = lineLength/2*sqrt(4*circleFactor^2 -1);
+            n1 = (fracLine(j+1,:)-fracLine(j,:))/lineLength;   %Unit vector
+            n2 = [-n1(2), n1(1)];                              %Unit normal
+            left(j,:) = fracLine(j,:) + lineLength/2*n1 + fractureRadius*n2;
+            right(j,:) = fracLine(j,:) + lineLength/2*n1 - fractureRadius*n2;
+            ptGrSp(j) = (2-10^-6*fracDs)*fractureRadius;
         end
 
-        nl = 2*size(left, 1);
+        nl = 2*(numOfFracLine-1);
         Pts = [Pts;left;right];
         priIndex = [priIndex; (2+i)*ones(nl,1)];
-        gridSpacing = [gridSpacing; (2-100*eps)*fracture_radius*ones(nl,1)];
-        plot(left(:,1),left(:,2), 'b.');
-        plot(right(:,1), right(:,2), 'r.');
+        gridSpacing = [gridSpacing; ptGrSp; ptGrSp];
+        plot(left(:,1),left(:,2), 'k.');
+        plot(right(:,1), right(:,2), 'k.');
     end
     
     vx = 0:dx:pdims(1);
@@ -77,7 +83,7 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     resPts = [X(:), Y(:)];
     Pts = [Pts;resPts];
     priIndex = [priIndex; ones(size(Pts, 1), 1)];
-    gridSpacing = [gridSpacing; (min(dx,dy)-100*eps)*ones(size(Pts,1),1)];
+    gridSpacing = [gridSpacing; (1-10^-6)*min(dx,dy)*ones(size(Pts,1),1)];
     
     
     [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex);
@@ -87,12 +93,26 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     G = triangleGrid(Pts, Tri.ConnectivityList);
 
     G = pebi(G);
-    plot(Pts(:,1),Pts(:,2), 'o')
 
     varargout{1} = G;
     if nargout > 1
         varargout{2} = indicator;
     end
+end
+
+
+function [newPoints, dt] = eqInterpret(path, dt)
+    linesDist = sqrt(sum(diff(path,[],1).^2,2));
+    linesDist = [0; linesDist]; % add the starting point
+    cumDist = cumsum(linesDist);
+    dt = cumDist(end)/ceil(cumDist(end)/dt);
+    newPointsLoc = 0:dt:cumDist(end);
+    if length(newPointsLoc)<2 % Fracture to short
+        error('Fracture grid size larger than fracture')
+    end
+        
+    newPoints = interp1(cumDist, path, newPointsLoc);
+      
 end
 
 
