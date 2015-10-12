@@ -56,12 +56,11 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
             ptGrSp(j) = (2-10^-6*fracDs)*fractureRadius;
         end
 
-        nl = 2*(numOfFracLine-1);
+        nl = (numOfFracLine-1);
         Pts = [Pts;left;right];
+        faultType = [faultType; rldecode([1; 2], [nl; nl])];
         priIndex = [priIndex; (2+i)*ones(nl,1)];
         gridSpacing = [gridSpacing; ptGrSp; ptGrSp];
-        plot(left(:,1),left(:,2), 'k.');
-        plot(right(:,1), right(:,2), 'k.');
     end
     
     vx = 0:dx:pdims(1);
@@ -82,18 +81,19 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
 
     resPts = [X(:), Y(:)];
     Pts = [Pts;resPts];
+    faultType = [faultType; zeros(size(resPts,1),1)];
     priIndex = [priIndex; ones(size(Pts, 1), 1)];
     gridSpacing = [gridSpacing; (1-10^-6)*min(dx,dy)*ones(size(Pts,1),1)];
     
     
     [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex);
- 
+    faultType = logical(faultType(~removed));
     Tri = delaunayTriangulation(Pts);
     
     G = triangleGrid(Pts, Tri.ConnectivityList);
 
     G = pebi(G);
-
+    plot(Pts(faultType,1), Pts(faultType,2), '.k')
     varargout{1} = G;
     if nargout > 1
         varargout{2} = indicator;
@@ -131,7 +131,7 @@ function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
         %[~, Is] = sort(sumToClose,'descend');
         [~, Ii ] = sort(priIndex(Ic), 'ascend');
 
-        removePoint = Ic(Ii(1)));
+        removePoint = Ic(Ii(1));
         removed(removePoint) = 1;        
         Ic = Ic(Ic~=removePoint);
         ptsToClose = Pts(Ic,:);
