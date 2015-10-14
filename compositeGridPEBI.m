@@ -87,10 +87,9 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     priIndex = [priIndex; ones(size(Pts, 1), 1)];
     gridSpacing = [gridSpacing; (1-10^-6)*min(dx,dy)*ones(size(Pts,1),1)];
     
-    
+
     [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex);
     faultType = faultType(~removed);
-    
     Tri = delaunayTriangulation(Pts);
     G = triangleGrid(Pts, Tri.ConnectivityList);
     G = pebi(G);
@@ -106,7 +105,6 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
         varargout{2} = indicator;
     end
 end
-
 
 function [newPoints, dt] = eqInterpret(path, dt)
     linesDist = sqrt(sum(diff(path,[],1).^2,2));
