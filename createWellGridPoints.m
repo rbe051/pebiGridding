@@ -1,0 +1,15 @@
+function [Pts, gridSpacing] = createWellGridPoints(wellLine, wellDs) 
+    assert(0<wellDs)
+    assert(size(wellLine,1)>=1, size(wellLine,2)==2);
+    if (size(wellLine,1) == 1)
+        Pts = wellLine;
+        gridSpacing = wellDs*(1-10^-6);
+    else
+        [Pts, ~] = eqInterpret(wellLine, wellDs);
+        gridSpacing = sqrt(sum(diff(Pts,1,1).^2,2))-wellDs*10^-6;
+        gridSpacing = [gridSpacing;gridSpacing(end)];
+    end
+end
+
+
+

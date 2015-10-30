@@ -1,24 +1,24 @@
 
-% Multiple fractures. From Fung et.al 15.
-close all
-x = 0.2:0.05:0.8;
-l = {[0.65,0.1;0.65,0.926],...
-     [0.2,0.175; 0.875,0.875], ...
-     [0.2,0.925; 0.9,0.125], ...
-     [0.45,0.15; 0.83, 0.35]};
-
-figure()
-hold on
-Gp = compositeGridPEBI([30,30], [1, 1], 'lines', l, 'padding', 1);
-
-plotGrid(Gp, 'faceColor', 'none')
-axis equal tight
-hold on
-plotFault(Gp)
-%for i = 1:numel(l)
-%   line = l{i};
-%   plot(line(:, 1), line(:, 2),'r');
-%end
+% % Multiple fractures. From Fung et.al 15.
+% close all
+% x = 0.2:0.05:0.8;
+% l = {[0.65,0.1;0.65,0.926],...
+%      [0.2,0.175; 0.875,0.875], ...
+%      [0.2,0.925; 0.9,0.125], ...
+%      [0.45,0.15; 0.83, 0.35]};
+% 
+% figure()
+% hold on
+% Gp = compositeGridPEBI([30,30], [1, 1], 'lines', l, 'padding', 1);
+% 
+% plotGrid(Gp, 'faceColor', 'none')
+% axis equal tight
+% hold on
+% plotFault(Gp)
+% %for i = 1:numel(l)
+% %   line = l{i};
+% %   plot(line(:, 1), line(:, 2),'r');
+% %end
 
 %%
 %Close up on one iregular fracture.
@@ -34,3 +34,64 @@ plotFault(Gp)
 % axis equal tight
 % hold on
 % plotFault(Gp)
+
+
+% % Multiple fractures. From Fung et.al 15. huge frac gird size
+% close all
+% x = 0.2:0.05:0.8;
+% l = {[0.65,0.1;0.65,0.926],...
+%      [0.2,0.175; 0.875,0.875], ...
+%      [0.2,0.925; 0.9,0.125], ...
+%      [0.45,0.15; 0.83, 0.35]};
+% 
+% figure()
+% hold on
+% Gp = compositeGridPEBI([30,30], [1, 1], 'lines', l, 'padding', 1,...
+%                        'fracGridSize', 0.05, 'circleFactor', 0.55);
+% 
+% plotGrid(Gp, 'faceColor', 'none')
+% axis equal tight
+% hold on
+% plotFault(Gp)
+% %for i = 1:numel(l)
+% %   line = l{i};
+% %   plot(line(:, 1), line(:, 2),'r');
+% %end
+
+
+
+%%
+% Test of well grid points
+close all
+
+wellLine = {%[0.5,0.5;0.8,0.8], ...
+            %[0.65,0.2;0.65,0.8],...;            
+            [0.3,0.3;0.7,0.8]}
+            
+
+Gp = compositeGridPEBI([10,10], [1, 1], 'wellLines', wellLine, 'padding', 1,...
+                        'wellGridSize',0.03);
+
+figure()
+hold on
+plotGrid(Gp, 'faceColor', 'none')
+axis equal tight
+hold on
+plotFault(Gp)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

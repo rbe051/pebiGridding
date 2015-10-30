@@ -9,6 +9,11 @@ function [Pts, gridSpacing] = createFracGridPoints(fracLine, fracDs, circleFacto
     %sharp corners and/or you upsample the line.
 
     numOfFracPts = size(fracLine,1)-1;
+    if numOfFracPts == 0
+        Pts = [];
+        gridSpacing = [];
+        return
+    end
 
     % Create left vector and right vector(to contain fracture points).
     left = zeros(numOfFracPts, 2);

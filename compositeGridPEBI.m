@@ -1,74 +1,75 @@
 function varargout = compositeGridPEBI(dims, pdims, varargin)
+        
+    opt = struct('padding', 1, ...
+                 'wellLines', {{}}, ...
+                 'wellGridSize', -1, ...
+                 'fracLines', {{}}, ...
+                 'fracGridSize', -1, ...
+                 'circleFactor', 0.6);         
+    opt = merge_options(opt, varargin{:});
+             
     nx = dims(1);
     ny = dims(2);
     
     dx = pdims(1)/(nx - 1);
     dy = pdims(2)/(ny - 1);
 
-    
-    opt = struct('padding', 1, ...
-                 'lines', {{}}, ...
-                 'fracGridSize', -1, ...
-                 'circleFactor', 0.6);
-         
-    opt = merge_options(opt, varargin{:});
-
-    circleFactor = opt.circleFactor;
-    fracDs = opt.fracGridSize;
-    if fracDs == -1
-        fracDs = min(dx,dy);
-    end
-    assert(0.5<circleFactor && circleFactor < 1)
-    assert(0<fracDs)
-    
-    Pts = [];
+    faultType = [];
     priIndex = [];
     gridSpacing = [];
-    faultType = [];
-    lastFaultType = 0;
-    for i = 1:numel(opt.lines)
-        fracLine = opt.lines{i};
-        
-        assert(all(size(fracLine,2) == 2));
-        assert(all(size(fracLine,1) > 1));
-        
-        
-        [fracLine, fracDs] = eqInterpret(fracLine, fracDs);
-        %This is equidistante if you follow the line described by fracLine,
-        %but the new points may be a bit to close if the fracture has
-        %sharp corners and/or you upsample the line.
-        
-        numOfFracLine = size(fracLine,1);
-        
-        % Create left vector and right vector(to contain fracture points).
-        left = zeros(numOfFracLine-1, 2);
-        right = zeros(numOfFracLine-1, 2);
-        ptGrSp = zeros(numOfFracLine-1, 1);
-        for j=1:numOfFracLine-1
-            lineLength = norm(fracLine(j+1,:) - fracLine(j,:));
-            %Because the line lengths are not completely uniform we have to
-            %calculate this for each segment.
-            fractureRadius = lineLength/2*sqrt(4*circleFactor^2 -1);
-            n1 = (fracLine(j+1,:)-fracLine(j,:))/lineLength;   %Unit vector
-            n2 = [-n1(2), n1(1)];                              %Unit normal
-            left(j,:) = fracLine(j,:) + lineLength/2*n1 + fractureRadius*n2;
-            right(j,:) = fracLine(j,:) + lineLength/2*n1 - fractureRadius*n2;
-            ptGrSp(j) = (2-10^-6*fracDs)*fractureRadius;
-        end
-
-        nl = (numOfFracLine-1);
-        Pts = [Pts;left;right];
-        newFaultType = lastFaultType+1:lastFaultType+nl;
-        faultType = [faultType; newFaultType';newFaultType'];        % 2*i-1rldecode([2*i-1; 2*i], [nl; nl])];
-        lastFaultType = faultType(end);
-        priIndex = [priIndex; (2+i)*ones(2*nl,1)];
-        gridSpacing = [gridSpacing; ptGrSp; ptGrSp];
+    fracPts = [];
+    %%
+    %%Create Fault grid points:
+    if opt.fracGridSize ==-1
+        fracGridSize = sqrt(dx^2+dy^2);
+    else
+        fracGridSize = opt.fracGridSize;
     end
     
+
+    lastFaultType = 0;
+    for i = 1:numel(opt.fracLines)
+        fracLine = opt.fracLines{i};    
+        [fracPts, fracSpace] = createFracGridPoints(fracLine,...
+                                                      fracGridSize,...
+                                                      opt.circleFactor);
+
+        nl = size(fracPts,1)/2;
+        if nl==0
+            continue
+        end
+        
+        newFaultType = lastFaultType+1:lastFaultType+nl;
+        lastFaultType = newFaultType(end);
+        faultType = [faultType; newFaultType';newFaultType'];        % 2*i-1rldecode([2*i-1; 2*i], [nl; nl])];
+        priIndex = [priIndex; (2+i)*ones(2*nl,1)];
+        gridSpacing = [gridSpacing;fracSpace];
+        fracPts = [fracPts;fracPts];
+    end
+    %%
+    %%Create well grid points
+    if opt.wellGridSize == -1
+        wellGridSize = sqrt(dx^2+dy^2);
+    else
+        wellGridSize = opt.wellGridSize;
+    end
+    
+    wellPts = []
+    for i = 1:numel(opt.wellLines)
+        wellLine = opt.wellLines{i};
+        [newWellPts,wellSpace] = createWellGridPoints(wellLine, wellGridSize);
+        np = size(newWellPts,1);
+        faultType = [faultType; zeros(np,1)];
+        priIndex = [priIndex; 2*ones(np,1)];
+        gridSpacing = [gridSpacing; wellSpace];
+        wellPts= [wellPts; newWellPts];
+    end
+    
+    %%
+    %% Create reservoir grid
     vx = 0:dx:pdims(1);
     vy = 0:dy:pdims(2);
     [X, Y] = meshgrid(vx, vy);
-
 
     [ii, jj] = meshgrid(1:nx, 1:ny);
 
@@ -80,14 +81,24 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
 
     X(interior) = X(interior);
     Y(interior) = Y(interior);
-
-    resPts = [X(:), Y(:)];
-    Pts = [Pts;resPts];
-    faultType = [faultType; zeros(size(resPts,1),1)];
-    priIndex = [priIndex; ones(size(Pts, 1), 1)];
-    gridSpacing = [gridSpacing; (1-10^-6)*min(dx,dy)*ones(size(Pts,1),1)];
+    resPtsInit = [X(:), Y(:)];
+    res = {};
+    resGridSize = 0.5*min(dx,dy);
+    for i = 1:size(resPtsInit,1)
+        res = [res; mlqt(resPtsInit(i,:), wellPts, resGridSize,1, 2, dx)];
+    end
+    resPts = vec2mat([res{:,1}],2)
+    resGridSize = [res{:,2}]';
     
-
+    
+    faultType = [faultType; zeros(size(resPts,1),1)];
+    priIndex = [priIndex; ones(size(resPts, 1), 1)];
+    gridSpacing = [gridSpacing; resGridSize];%(1-10^-6)*min(dx,dy)*ones(size(resPts,1),1)];
+    
+    
+    %%
+    % Put grid Points together
+    Pts = [fracPts;wellPts;resPts];
     [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex);
     faultType = faultType(~removed);
     Tri = delaunayTriangulation(Pts);
@@ -99,25 +110,14 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     ft1 = faultType(N(:,1));
     ft2 = faultType(N(:,2));
     G.faces.tag = double(ft1 == ft2 & ft1 > 0 & ft2 >0);
-
+    
+    figure()
+    plot(Pts(:,1),Pts(:,2),'.')
+    plotGrid(G,'facecolor','none')
     varargout{1} = G;
     if nargout > 1
         varargout{2} = indicator;
     end
-end
-
-function [newPoints, dt] = eqInterpret(path, dt)
-    linesDist = sqrt(sum(diff(path,[],1).^2,2));
-    linesDist = [0; linesDist]; % add the starting point
-    cumDist = cumsum(linesDist);
-    dt = cumDist(end)/ceil(cumDist(end)/dt);
-    newPointsLoc = 0:dt:cumDist(end);
-    if length(newPointsLoc)<2 % Fracture to short
-        error('Fracture grid size larger than fracture')
-    end
-        
-    newPoints = interp1(cumDist, path, newPointsLoc);
-      
 end
 
 
