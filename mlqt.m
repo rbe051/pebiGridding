@@ -1,14 +1,43 @@
-function [res] = mlqt(pts, bndr, gridSize, level, levelTol, distTol)
-    n = size(bndr,1);
-    repPnt = repmat(pts,n,1);
-    if any(sum((repPnt-bndr).^2,2) < distTol^2) && level<= levelTol
-        shift = gridSize/2;
-        res = [mlqt(pts + [shift,shift], bndr, gridSize/2, level+1, levelTol, distTol/2);...
-                  mlqt(pts + [shift,-shift], bndr, gridSize/2, level+1, levelTol, distTol/2);...
-                  mlqt(pts + [-shift,-shift], bndr, gridSize/2, level+1, levelTol, distTol/2);...
-                  mlqt(pts + [-shift,shift], bndr, gridSize/2, level+1, levelTol, distTol/2)];
-            
+function [res] = mlqt(cellCenter, bndr, cellSize, varargin)
+    
+    opt = struct('level', 1, ...
+                 'maxLev', 0, ...
+                 'distTol', -1);
+             
+    opt = merge_options(opt, varargin{:});
+    level = opt.level;
+    maxLev = opt.maxLev;
+    
+    if level> maxLev
+        res = {cellCenter, cellSize*(1-10^-6)};
+        return
+    end
+    
+    assert(cellSize>0);
+    assert(size(opt.distTol,2) ==1 && size(opt.distTol,1) >0)
+    
+    if size(opt.distTol,1)==1
+        if opt.distTol <= 0
+            distTol = 1.5*cellSize/2;
+        else
+            distTol = opt.distTol;
+        end
+        distNext = distTol/2;
     else
-        res = {pts, gridSize*(1-10^-6)};
+        distTol = opt.distTol(level);
+        distNext = opt.distTol;
+    end
+    
+    n = size(bndr,1);
+    repPnt = repmat(cellCenter,n,1);
+    if any(max(abs(repPnt-bndr),[],2) < distTol)
+        shift = cellSize/4;
+        varArg = {'level', level+1, 'maxLev', maxLev, 'distTol', distNext};
+        res = [mlqt(cellCenter + [shift,shift], bndr, cellSize/2, varArg{:});...
+               mlqt(cellCenter + [shift,-shift], bndr, cellSize/2, varArg{:});...
+               mlqt(cellCenter + [-shift,-shift], bndr, cellSize/2, varArg{:});...
+               mlqt(cellCenter + [-shift,shift], bndr, cellSize/2, varArg{:})];            
+    else
+        res = {cellCenter, cellSize*(1-10^-6)};
     end
 end
