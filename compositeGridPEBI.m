@@ -7,7 +7,8 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
                  'mlqtLevelSteps', -1, ...
                  'fracLines', {{}}, ...
                  'fracGridSize', -1, ...
-                 'circleFactor', 0.6);         
+                 'circleFactor', 0.6, ...
+                 'fullFaultEdge', 1);         
     opt = merge_options(opt, varargin{:});
              
     nx = dims(1);
@@ -20,6 +21,7 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     wellType = [];
     priIndex = [];
     gridSpacing = [];
+
     
     %%
     %%Create well grid points
@@ -43,7 +45,11 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     
     %%
     %%Create Fault grid points:
-    fracPts = [];
+    fracPts = []; 
+    faultCenter = [];
+    faultRadius = [];
+    faultToCenter = [];
+    faultPos = size(wellPts,1)+1;
     if opt.fracGridSize ==-1
         fracGridSize = sqrt(dx^2+dy^2);
     else
@@ -56,11 +62,12 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     end
 
     lastFaultType = 0;
+    lastCCid = 0;
     for i = 1:numel(opt.fracLines)
         fracLine = opt.fracLines{i};    
-        [newFracPts, fracSpace] = createFracGridPoints(fracLine,...
-                                                    fracGridSize,...
-                                                    opt.circleFactor);
+        [newFracPts, fracSpace, CC, CR,CCid] = createFracGridPoints(fracLine,...
+                                                               fracGridSize,...
+                                                               opt.circleFactor);
 
         nl = size(newFracPts,1)/2;
         if nl==0
@@ -74,6 +81,11 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
         priIndex = [priIndex; (maxWellPri+i)*ones(2*nl,1)];
         gridSpacing = [gridSpacing;fracSpace];
         fracPts = [fracPts;newFracPts];
+        faultCenter = [faultCenter; CC];
+        faultRadius = [faultRadius; CR];
+        faultToCenter = [faultToCenter;lastCCid+CCid]; 
+        lastCCid = faultToCenter(end)+1;
+        faultPos = [faultPos; size(fracPts,1)+1];
     end
 
     %%
@@ -109,22 +121,57 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     faultType = [faultType; zeros(size(resPts,1),1)];
     wellType = [wellType; zeros(size(resPts,1),1)];
     priIndex = [priIndex; ones(size(resPts, 1), 1)];
-    gridSpacing = [gridSpacing; resGridSize];%(1-10^-6)*min(dx,dy)*ones(size(resPts,1),1)];
+    gridSpacing = [gridSpacing; resGridSize]; %(1-10^-6)*min(dx,dy)*ones(size(resPts,1),1)];
     
     
     %%
     % Put grid Points together
     Pts = [wellPts;fracPts;resPts];
-    [Pts, removed] = removeConflictPoints(Pts, gridSpacing, ...
-                                                    priIndex);
+    
+    [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex);
+        
     faultType = faultType(~removed);
     wellType = wellType(~removed);
     
+    if opt.fullFaultEdge    
+        % Create a index map of the points
+        faultIndex = (1:size(Pts,1))';
+        remove = zeros(size(faultCenter,1),1);
+        for i = 1:size(faultPos,1)-1 %iterate over all faults
+            %Find removed fault points from current fault
+            faultPts = faultIndex(faultPos(i):faultPos(i+1)-1);
+            isRemovedFaults = false(size(Pts,1),1);
+            isRemovedFaults(faultPts) = removed(faultPts);
+            % Find the first and last circle in curren fault
+            Cfrom  = faultToCenter(faultPos(i));
+            Cto = faultToCenter(faultPos(i+1)-1)+1;
+            % Find which circles has a removed fault point
+            toRemove1 = false(size(faultCenter,1),1);
+            toRemove2 = toRemove1;
+            circleToRemove1 = faultToCenter(faultIndex(isRemovedFaults));
+            circleToRemove1 = unique(circleToRemove1);
+            % Remove circle if a fault ptn on both sides is removed
+            circleToRemove2 = circleToRemove1 + 1;
+            circleToRemove1 = [circleToRemove1; Cto];
+            circleToRemove2 = [Cfrom; circleToRemove2];
+            toRemove1(circleToRemove1) = true;
+            toRemove2(circleToRemove2) = true;
+            toRemove = and(toRemove1, toRemove2);
+            remove = remove + toRemove;
+        end
+        remove = logical(remove);
+        faultCenter = faultCenter(~remove,:);
+        faultRadius = faultRadius(~remove);
+        [Pts, removed] = enforceSufficientFaultCondition(Pts, faultType, faultCenter, faultRadius);
+        faultType = faultType(~removed);
+        wellType = wellType(~removed);
+    end
+    %% Create Grid
     Tri = delaunayTriangulation(Pts);
     G = triangleGrid(Pts, Tri.ConnectivityList);
     G = pebi(G);
 
-    wellType = wellType + cellsContPts(G, wellPts(logical(removed(1:size(wellPts,1))),:));
+    wellType = wellType + cellsContPts(G, wellPts(removed(1:size(wellPts,1)),:));
     % label fault faces.
     N = G.faces.neighbors + 1;
     faultType = [0; faultType];
@@ -135,9 +182,21 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     %Label well cells
     G.cells.tag = logical(wellType);
     
-    figure()
-    plot(Pts(:,1),Pts(:,2),'.')
-    plotGrid(G,'facecolor','none')
+       figure()
+    hold on
+       %       hold on
+       plot(Pts(:,1),Pts(:,2),'r.')
+%       plot(fracPts(:,1), fracPts(:,2),'r.')
+      plotGrid(G,'facecolor','none')
+    
+    theta = linspace(0,2*pi,50);
+    
+
+    for i = 1:size(faultCenter,1)
+        x = faultCenter(i,1) + faultRadius(i)*cos(theta);
+        y = faultCenter(i,2) + faultRadius(i)*sin(theta);
+        plot(x,y);
+    end
     varargout{1} = G;
     if nargout > 1
         varargout{2} = indicator;
@@ -150,7 +209,7 @@ function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
     
     Ic = 1:size(Pts, 1);
     ptsToClose = Pts;
-    removed = zeros(size(Pts, 1), 1);
+    removed = false(size(Pts, 1), 1);
     
     distance = pdist(ptsToClose)';
     dlt = distLessThan(distance, gridSpacing(Ic));
@@ -163,7 +222,7 @@ function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
         [~, Ii ] = sort(priIndex(Ic), 'ascend');
 
         removePoint = Ic(Ii(1));
-        removed(removePoint) = 1;        
+        removed(removePoint) = true;        
         Ic = Ic(Ic~=removePoint);
         ptsToClose = Pts(Ic,:);
         
@@ -225,4 +284,22 @@ function [Pts, isNew, removed] = replacePointsByHull(Pts, P_target)
     isNew(1:sum(keep)) = false;
     
     removed = ~keep;
+end
+
+
+
+
+function [Pts, removed] = enforceSufficientFaultCondition(Pts, isFault, CC, CR);
+assert(size(CC,1)==size(CR,1));
+assert(size(isFault,1)==size(Pts,1));
+nc = size(CC,1);
+np = size(Pts,1);
+removed = zeros(np,1);
+CRSqr = CR.^2;
+for i = 1:nc
+    distSqr = sum((repmat(CC(i,:),np,1)-Pts).^2,2);
+    removed = removed + and(distSqr<CRSqr(i), ~isFault);
+end                
+removed = logical(removed);
+Pts = Pts(~removed,:);
 end

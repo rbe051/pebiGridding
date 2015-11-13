@@ -1,14 +1,14 @@
-function [Pts, gridSpacing] = createFracGridPoints(fracLine, fracDs, circleFactor) 
+function [Pts, gridSpacing, circCenter, circRadius, CCid] = createFracGridPoints(faultLine, fracDs, circleFactor) 
     assert(0.5<circleFactor && circleFactor < 1)
     assert(0<fracDs)
-    assert(size(fracLine,1)>1, size(fracLine,2)==2);
+    assert(size(faultLine,1)>1, size(faultLine,2)==2);
 
-    [fracLine, fracDs] = eqInterpret(fracLine, fracDs);
+    [circCenter, ~] = eqInterpret(faultLine, fracDs);
     %This is equidistante if you follow the line described by fracLine,
     %but the new points may be a bit to close if the fracture has
     %sharp corners and/or you upsample the line.
 
-    numOfFracPts = size(fracLine,1)-1;
+    numOfFracPts = size(circCenter,1)-1;
     if numOfFracPts == 0
         Pts = [];
         gridSpacing = [];
@@ -19,20 +19,22 @@ function [Pts, gridSpacing] = createFracGridPoints(fracLine, fracDs, circleFacto
     left = zeros(numOfFracPts, 2);
     right = zeros(numOfFracPts, 2);
     ptGrSp = zeros(numOfFracPts, 1);
+    lineLength = sqrt(sum((circCenter(2:end,:)-circCenter(1:end-1,:)).^2, 2));
     
     for j=1:numOfFracPts
-        lineLength = norm(fracLine(j+1,:) - fracLine(j,:));
+        %lineLength = norm(fracLine(j+1,:) - fracLine(j,:));
         %Because the line lengths are not completely uniform we have to
         %calculate this for each segment.
-        fractureRadius = lineLength/2*sqrt(4*circleFactor^2 -1);
-        n1 = (fracLine(j+1,:)-fracLine(j,:))/lineLength;   %Unit vector
+        fractureRadius = lineLength(j)/2*sqrt(4*circleFactor^2 -1);
+        n1 = (circCenter(j+1,:)-circCenter(j,:))/lineLength(j);   %Unit vector
         n2 = [-n1(2), n1(1)];                              %Unit normal
-        left(j,:) = fracLine(j,:) + lineLength/2*n1 + fractureRadius*n2;
-        right(j,:) = fracLine(j,:) + lineLength/2*n1 - fractureRadius*n2;
-        ptGrSp(j) = (2-10^-6*fracDs)*fractureRadius;
+        left(j,:) = circCenter(j,:) + lineLength(j)/2*n1 + fractureRadius*n2;
+        right(j,:) = circCenter(j,:) + lineLength(j)/2*n1 - fractureRadius*n2;
+        ptGrSp(j) = 2*fractureRadius;
     end
-    
+    circRadius = circleFactor*[lineLength;lineLength(end)];
     Pts = [right;left];
+    CCid = [1:size(left,1),1:size(right,1)]';
     gridSpacing = [ptGrSp; ptGrSp];
 end
 
