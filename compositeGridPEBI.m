@@ -48,7 +48,7 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     fracPts = []; 
     faultCenter = [];
     faultRadius = [];
-    faultToCenter = [];
+    faultToCenter = zeros(size(wellPts,1),1);
     faultPos = size(wellPts,1)+1;
     if opt.fracGridSize ==-1
         fracGridSize = sqrt(dx^2+dy^2);
@@ -85,7 +85,7 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
         faultRadius = [faultRadius; CR];
         faultToCenter = [faultToCenter;lastCCid+CCid]; 
         lastCCid = faultToCenter(end)+1;
-        faultPos = [faultPos; size(fracPts,1)+1];
+        faultPos = [faultPos; faultPos(end)+size(newFracPts,1)];
     end
 
     %%
@@ -182,21 +182,21 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     %Label well cells
     G.cells.tag = logical(wellType);
     
-       figure()
-    hold on
-       %       hold on
-       plot(Pts(:,1),Pts(:,2),'r.')
-%       plot(fracPts(:,1), fracPts(:,2),'r.')
-      plotGrid(G,'facecolor','none')
-    
-    theta = linspace(0,2*pi,50);
-    
-
-    for i = 1:size(faultCenter,1)
-        x = faultCenter(i,1) + faultRadius(i)*cos(theta);
-        y = faultCenter(i,2) + faultRadius(i)*sin(theta);
-        plot(x,y);
-    end
+%        figure()
+%     hold on
+%        %       hold on
+%        plot(Pts(:,1),Pts(:,2),'r.')
+% %       plot(fracPts(:,1), fracPts(:,2),'r.')
+%       plotGrid(G,'facecolor','none')
+%     
+%     theta = linspace(0,2*pi,50);
+%     
+% 
+%     for i = 1:size(faultCenter,1)
+%         x = faultCenter(i,1) + faultRadius(i)*cos(theta);
+%         y = faultCenter(i,2) + faultRadius(i)*sin(theta);
+%         plot(x,y);
+%     end
     varargout{1} = G;
     if nargout > 1
         varargout{2} = indicator;
