@@ -5,8 +5,8 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
                  'wellGridSize', -1, ...
                  'mlqtMaxLevel', 0, ...
                  'mlqtLevelSteps', -1, ...
-                 'fracLines', {{}}, ...
-                 'fracGridSize', -1, ...
+                 'faultLines', {{}}, ...
+                 'faultGridSize', -1, ...
                  'circleFactor', 0.6, ...
                  'fullFaultEdge', 1);         
     opt = merge_options(opt, varargin{:});
@@ -50,10 +50,10 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     faultRadius = [];
     faultToCenter = zeros(size(wellPts,1),1);
     faultPos = size(wellPts,1)+1;
-    if opt.fracGridSize ==-1
-        fracGridSize = sqrt(dx^2+dy^2);
+    if opt.faultGridSize ==-1
+        faultGridSize = sqrt(dx^2+dy^2);
     else
-        fracGridSize = opt.fracGridSize;
+        faultGridSize = opt.faultGridSize;
     end
     if size(priIndex,1)<1
         maxWellPri = 2;
@@ -63,10 +63,10 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
 
     lastFaultType = 0;
     lastCCid = 0;
-    for i = 1:numel(opt.fracLines)
-        fracLine = opt.fracLines{i};    
+    for i = 1:numel(opt.faultLines)
+        fracLine = opt.faultLines{i};    
         [newFracPts, fracSpace, CC, CR,CCid] = createFracGridPoints(fracLine,...
-                                                               fracGridSize,...
+                                                               faultGridSize,...
                                                                opt.circleFactor);
 
         nl = size(newFracPts,1)/2;
@@ -108,15 +108,19 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     X(interior) = X(interior);
     Y(interior) = Y(interior);
     resPtsInit = [X(:), Y(:)];
-    res = {};
 
-    varArg = {'level', 1, 'maxLev', maxLev, 'distTol', distTol};
-    for i = 1:size(resPtsInit,1)
-        res = [res; mlqt(resPtsInit(i,:), wellPts, dx, varArg{:})];
+    if size(wellPts,1)>0
+        res = {};
+        varArg = {'level', 1, 'maxLev', maxLev, 'distTol', distTol};
+        for i = 1:size(resPtsInit,1)
+            res = [res; mlqt(resPtsInit(i,:), wellPts, dx, varArg{:})];
+        end
+        resPts = vec2mat([res{:,1}],2);
+        resGridSize = 0.5*[res{:,2}]';
+    else
+        resPts = resPtsInit;
+        resGridSize = repmat(max(dx,dy),size(resPts,1),1);
     end
-    resPts = vec2mat([res{:,1}],2);
-    resGridSize = 0.5*[res{:,2}]';
-    
     
     faultType = [faultType; zeros(size(resPts,1),1)];
     wellType = [wellType; zeros(size(resPts,1),1)];
@@ -128,7 +132,7 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     % Put grid Points together
     Pts = [wellPts;fracPts;resPts];
     
-    [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex);
+    [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, priIndex, wellType);
         
     faultType = faultType(~removed);
     wellType = wellType(~removed);
@@ -171,7 +175,7 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     G = triangleGrid(Pts, Tri.ConnectivityList);
     G = pebi(G);
 
-    wellType = wellType + cellsContPts(G, wellPts(removed(1:size(wellPts,1)),:));
+    %wellType = wellType + cellsContPts(G, wellPts(removed(1:size(wellPts,1)),:));
     % label fault faces.
     N = G.faces.neighbors + 1;
     faultType = [0; faultType];
@@ -181,7 +185,15 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     
     %Label well cells
     G.cells.tag = logical(wellType);
+
+    varargout{1} = G;
+    if nargout > 1
+        varargout{2} = indicator;
+    end
     
+    %     figure()
+%     hold on
+%     plot(Pts(logical(wellType),1),Pts(logical(wellType),2),'.')
 %        figure()
 %     hold on
 %        %       hold on
@@ -189,22 +201,20 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
 % %       plot(fracPts(:,1), fracPts(:,2),'r.')
 %       plotGrid(G,'facecolor','none')
 %     
-%     theta = linspace(0,2*pi,50);
-%     
-% 
-%     for i = 1:size(faultCenter,1)
-%         x = faultCenter(i,1) + faultRadius(i)*cos(theta);
-%         y = faultCenter(i,2) + faultRadius(i)*sin(theta);
+%     n = 50
+%     theta = (linspace(0,2*pi,n))';
+%     for i = 1:size(Pts,1)
+%         if faultType(i)
+%         x = Pts(i,1) + gridSpacing(i)*cos(theta);
+%         y = Pts(i,2) + gridSpacing(i)*sin(theta);
 %         plot(x,y);
+%         end
 %     end
-    varargout{1} = G;
-    if nargout > 1
-        varargout{2} = indicator;
-    end
 end
 
 
-function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
+function [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, ...
+                                                         priIndex, wellType)
     gridSpacing = gridSpacing*(1-1e-8); % To avoid floating point errors
     
     Ic = 1:size(Pts, 1);
@@ -214,7 +224,6 @@ function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
     distance = pdist(ptsToClose)';
     dlt = distLessThan(distance, gridSpacing(Ic));
     Ic = findToClose(dlt);
-    
     while length(Ic)>1
         %sumToClose = sumToClosePts(dlt);
         %sumToClose = sumToClose(find(sumToClose));
@@ -222,8 +231,17 @@ function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
         [~, Ii ] = sort(priIndex(Ic), 'ascend');
 
         removePoint = Ic(Ii(1));
-        removed(removePoint) = true;        
+        if wellType(removePoint)
+            n = size(Ic,1);
+            if Ii(1)>n/2;
+                wellType(Ic(ceil(mod(Ii(1),(n+1)/2)))) = true;
+            else
+                wellType(Ic(Ii(1)+n/2)) = true;
+            end
+        end
+        removed(removePoint) = true;    
         Ic = Ic(Ic~=removePoint);
+        Ic = unique(Ic);
         ptsToClose = Pts(Ic,:);
         
         if size(ptsToClose,1) ==1
@@ -232,6 +250,7 @@ function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
         distance = pdist(ptsToClose)';
         dlt = distLessThan(distance, gridSpacing(Ic));
         Ic = Ic(findToClose(dlt));
+        
     end
     Pts = Pts(~removed,:);
 end
@@ -259,8 +278,7 @@ function [indexes] = findToClose(arr)
     n = length(arr);
     k = find(arr);
     [i, j] = arrToMat(k, n);
-    
-    indexes = unique([i ; j]);
+    indexes = [i;j];
 end
 
 function [k] = matToArr(i,j, m)
