@@ -1,4 +1,4 @@
-function varargout = compositeGridPEBI(dims, pdims, varargin)
+function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
         
     opt = struct('padding', 1, ...
                  'wellLines', {{}}, ...
@@ -11,11 +11,12 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
                  'fullFaultEdge', 1);         
     opt = merge_options(opt, varargin{:});
              
-    nx = dims(1);
-    ny = dims(2);
-    
-    dx = pdims(1)/(nx - 1);
-    dy = pdims(2)/(ny - 1);
+    assert(numel(gridSizes) == 3)
+
+    resGridSize = gridSizes(1);
+    wellGridSize = gridSizes(2);
+    faultGridSize = gridSizes(3);
+
 
     faultType = [];
     wellType = [];
@@ -25,10 +26,8 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     
     %%
     %%Create well grid points
-    if opt.wellGridSize == -1
-        wellGridSize = sqrt(dx^2+dy^2);
-    else
-        wellGridSize = opt.wellGridSize;
+    if wellGridSize == -1
+        wellGridSize = resGridSize/2;
     end
     
     wellPts = [];
@@ -51,9 +50,7 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
     faultToCenter = zeros(size(wellPts,1),1);
     faultPos = size(wellPts,1)+1;
     if opt.faultGridSize ==-1
-        faultGridSize = sqrt(dx^2+dy^2);
-    else
-        faultGridSize = opt.faultGridSize;
+        faultGridSize = resGridSize/2;
     end
     if size(priIndex,1)<1
         maxWellPri = 2;
@@ -90,10 +87,14 @@ function varargout = compositeGridPEBI(dims, pdims, varargin)
 
     %%
     %% Create reservoir grid
+    dx = resGridSize;
+    dy = dx;
     vx = 0:dx:pdims(1);
     vy = 0:dy:pdims(2);
     [X, Y] = meshgrid(vx, vy);
 
+    nx = numel(vx);
+    ny = numel(vy);
     [ii, jj] = meshgrid(1:nx, 1:ny);
 
     nedge = opt.padding;
@@ -215,7 +216,7 @@ end
 
 function [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, ...
                                                          priIndex, wellType)
-    gridSpacing = gridSpacing*(1-1e-8); % To avoid floating point errors
+    gridSpacing = gridSpacing*(1-1e-4); % To avoid floating point errors
     
     Ic = 1:size(Pts, 1);
     ptsToClose = Pts;
