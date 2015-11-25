@@ -1,4 +1,4 @@
-% % Multiple fractures. From Fung et.al 15.
+% Multiple fractures. From Fung et.al 15.
 % close all
 % x = 0.2:0.05:0.8;
 % l = {[0.65,0.1;0.65,0.926],...
@@ -6,7 +6,7 @@
 %      [0.2,0.925; 0.9,0.125], ...
 %      [0.45,0.15; 0.83, 0.35]};
 % 
-% Gp = compositeGridPEBI([30,30], [1, 1], 'fracLines', l, 'padding', 1);
+% Gp = compositeGridPEBI([0.1,-1,-1], [1, 1], 'faultLines', l, 'padding', 1);
 % 
 % plotGrid(Gp, 'faceColor', 'none')
 % axis equal tight
@@ -16,7 +16,7 @@
 %   line = l{i};
 %   plot(line(:, 1), line(:, 2),'r');
 % end
-
+% 
 
 
 % %close all
@@ -41,19 +41,19 @@
 
 %%
 %%Close up on one iregular fracture.
-close all; clear all
-x = [0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.8];
-y = [0.25,0.26,0.28,0.34,0.39,0.4,0.39,0.36];
-l = {[x',y']};    
-
-Gp = compositeGridPEBI([0.1,-1,-1], [1, 0.75], 'faultLines', l, 'padding', 0,...
-                       'fullFaultEdge', 0, 'circleFactor', 0.6);
-
-figure
-plotGrid(Gp, 'faceColor', 'none')
-axis equal tight off
-hold on
-plotFault(Gp)
+% close all; clear all
+% x = [0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.8];
+% y = [0.25,0.26,0.28,0.34,0.39,0.4,0.39,0.36];
+% l = {[x',y']};    
+% 
+% Gp = compositeGridPEBI([0.1,-1,-1], [1, 0.75], 'faultLines', l, 'padding', 0,...
+%                        'fullFaultEdge', 0, 'circleFactor', 0.6);
+% 
+% figure
+% plotGrid(Gp, 'faceColor', 'none')
+% axis equal tight off
+% hold on
+% plotFault(Gp)
 
 
 % %% Showing sufficient condition for fault edge with circle factor 0.6
@@ -161,33 +161,33 @@ plotFault(Gp)
 
 %%
 % % Test of well grid points
-% close all
-% 
-% x = linspace(0.2,0.8);
-% wellLine = {[0.7105,0.1842], ...
-%             [0.2,0.1842], ...
-%             [x', 0.5*sin(pi*x)'+0.2]};%, ...
-%             %[0.3,0.3;0.7,0.8]}
-%             
-% 
-% Gp = compositeGridPEBI([20,20], [1, 1], 'wellLines', wellLine, 'padding', 1, ...
-%                         'wellGridSize',0.02, 'mlqtMaxLevel', 2, ...
-%                         'mlqtLevelSteps',[0.07,0.03]');
-% 
-% figure()
-% hold on
-% plotGrid(Gp, 'faceColor', 'none')
-% axis equal tight off
-% hold on
-% %plotFault(Gp)
-% %plotWells(Gp)
-% for i = 1:numel(wellLine)
-%   line = wellLine{i};
-%   if size(line,1) == 1
-%       plot(line(1,1), line(1,2),'.r', 'markersize', 8);
-%   end
-%   plot(line(:, 1), line(:, 2),'r');
-% end
+close all
+
+x = linspace(0.2,0.8);
+wellLine = {[0.7105,0.1842], ...
+            [0.2,0.1842], ...
+            [x', 0.5*sin(pi*x)'+0.2]};%, ...
+            %[0.3,0.3;0.7,0.8]}
+            
+
+Gp = compositeGridPEBI([1/19,0.02,1/40], [1, 1], 'wellLines', wellLine, 'padding', 1, ...
+                        'wellGridSize',0.02, 'mlqtMaxLevel', 2, ...
+                        'mlqtLevelSteps',[0.07,0.03]');
+
+figure()
+hold on
+plotGrid(Gp, 'faceColor', 'none')
+axis equal tight off
+hold on
+%plotFault(Gp)
+%plotWells(Gp)
+for i = 1:numel(wellLine)
+  line = wellLine{i};
+  if size(line,1) == 1
+      plot(line(1,1), line(1,2),'.r', 'markersize', 8);
+  end
+  plot(line(:, 1), line(:, 2),'r');
+end
 
 
 

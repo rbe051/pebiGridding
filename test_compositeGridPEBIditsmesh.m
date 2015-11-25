@@ -78,20 +78,51 @@
 % end
 
 %
-%%Close up on one iregular fracture.
-close all; clear all
-x = [0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.8];
-y = [0.25,0.26,0.28,0.34,0.39,0.4,0.39,0.36];
-l = {[x',y']};    
+% %Close up on one iregular fracture.
+% close all; clear all
+% x = [0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.8];
+% y = [0.25,0.26,0.28,0.34,0.39,0.4,0.39,0.36];
+% l = {[x',y']};    
+% 
+% Gp = compositeGridPEBIdistmesh([0.1,-1,-1], [1, 0.75], 'faultLines', l, 'circleFactor', 0.6);
+% 
+% figure
+% plotGrid(Gp, 'faceColor', 'none')
+% axis equal tight off
+% hold on
+% plotFault(Gp)
+% % %plotFault(Gp)
 
-Gp = compositeGridPEBIdistmesh([0.1,-1,-1], [1, 0.75], 'faultLines', l, 'padding', 0,...
-                       'fullFaultEdge', 0, 'circleFactor', 0.6);
 
-figure
+
+%%Test of well grid points. Sine cureve and two vertical wells
+close all
+
+x = linspace(0.2,0.8);
+wellLine = {[0.7105,0.1842], ...
+            [0.2,0.1842], ...
+            [x', 0.5*sin(pi*x)'+0.2]};%, ...
+            %[0.3,0.3;0.7,0.8]}
+            
+
+Gp = compositeGridPEBIdistmesh(1/20, [1, 1], 'wellLines', wellLine, ...
+                               'wellGridFactor', 0.25);
+
+figure()
+hold on
 plotGrid(Gp, 'faceColor', 'none')
 axis equal tight off
 hold on
-plotFault(Gp)
-% %plotFault(Gp)
+%plotFault(Gp)
+
+for i = 1:numel(wellLine)
+  line = wellLine{i};
+  if size(line,1) == 1
+      plot(line(1,1), line(1,2),'.r', 'markersize', 8);
+  end
+  plot(line(:, 1), line(:, 2),'r');
+end
+plotWells(Gp)
+
 
 

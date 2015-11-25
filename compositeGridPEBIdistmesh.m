@@ -1,21 +1,31 @@
-function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
+function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
         
-    opt = struct('padding', 1, ...
-                 'wellLines', {{}}, ...
-                 'mlqtMaxLevel', 0, ...
-                 'mlqtLevelSteps', -1, ...
+    opt = struct('wellLines', {{}}, ...
+                 'wellGridFactor', -1, ...
+                 'wellRefDist', -1,...
+                 'faultGridFactor', -1, ...
                  'faultLines', {{}}, ...
-                 'faultGridSize', -1, ...
-                 'circleFactor', 0.6, ...
-                 'fullFaultEdge', 1);         
+                 'circleFactor', 0.6);
     opt = merge_options(opt, varargin{:});
 
-    assert(numel(gridSizes) == 3)
+    resGridSize = resGridSize;
+    wellGridFactor = opt.wellGridFactor;
+    if wellGridFactor < 0
+        wellGridFactor = 0.5;
+    end
+    faultGridFactor = opt.faultGridFactor;
+    if faultGridFactor < 0
+        faultGridFactor = 0.5;
+    end
+    
+    wellGridSize = resGridSize*wellGridFactor;
+    faultGridSize = resGridSize*faultGridFactor;
 
-    resGridSize = gridSizes(1);
-    wellGridSize = gridSizes(2);
-    faultGridSize = gridSizes(3);
-
+    wellEps = opt.wellRefDist;
+    if wellEps<0
+        wellEps = 0.25/max(pdims);
+    end
+    
     faultType = [];
     wellType = [];
     priIndex = [];
@@ -23,11 +33,7 @@ function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
 
     
     %%
-    %%Create well grid points
-    if wellGridSize == -1
-        wellGridSize = resGridSize/2;
-    end
-    
+    %%Create well grid points    
     wellPts = [];
     for i = 1:numel(opt.wellLines)
         wellLine = opt.wellLines{i};
@@ -47,9 +53,6 @@ function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
     faultRadius = [];
     faultToCenter = zeros(size(wellPts,1),1);
     faultPos = size(wellPts,1)+1;
-    if faultGridSize ==-1
-        faultGridSize = resGridSize/2;
-    end
     if size(priIndex,1)<1
         maxWellPri = 2;
     else
@@ -86,39 +89,46 @@ function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
     
     %% Remove fault and well conflic points
     fixedPts = [wellPts;faultPts];
-    [fixedPts, removed, wellType] = removeConflictPoints(fixedPts, gridSpacing, priIndex, wellType);
-    
-    
-    faultType = faultType(~removed);
-    wellType = wellType(~removed);
-    
+    if size(fixedPts,1)>1
+        [fixedPts, removed, wellType] = removeConflictPoints(fixedPts, gridSpacing, priIndex, wellType);
+        faultType = faultType(~removed);
+        wellType = wellType(~removed);
+    end
     %%
     %% Create grid
     % set dist function
     x = pdims;
     fd = @(p) drectangle(p,0,x(1),0,x(2));
     corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
-    fixedPts = [fixedPts; corners];
-    gridSpacing = [gridSpacing; zeros(size(corners,1),1)];
-    priIndex = [priIndex; zeros(size(corners,1),1)];
-     faultType = [faultType;zeros(size(corners,1),1)];
-    wellType = [wellType;zeros(size(corners,1),1)];
+    fixedPts = [fixedPts; corners]; %Add these to fault and well type later
     
-    [Pts,t] = distmesh2d(fd, @huniform, resGridSize,[0,0;x(1),x(2)], fixedPts);
-        
+    % create distance function
+    
+    h = @(x) min((ones(size(x,1),1)/wellGridFactor), min(exp(pdist2(x,wellPts)/wellEps),[],2));
+            
+    [Pts,t, sort] = distmesh2d(fd, h, wellGridSize,[0,0;x(1),x(2)], fixedPts);
+    nNewPts = size(Pts,1) - size(faultType,1);
+    
+    faultType = [faultType;zeros(nNewPts,1)];
+    wellType = [wellType;zeros(nNewPts,1)];
+    
+    faultType = faultType(sort);
+    wellType = wellType(sort);
+    
+    
     G = triangleGrid(Pts, t);
     G = pebi(G);
 
-%     %wellType = wellType + cellsContPts(G, wellPts(removed(1:size(wellPts,1)),:));
-%     %label fault faces.
-%     N = G.faces.neighbors + 1;
-%     faultType = [0; faultType];
-%     ft1 = faultType(N(:,1));
-%     ft2 = faultType(N(:,2));
-%     G.faces.tag = logical(ft1 == ft2 & ft1 > 0 & ft2 >0);
-%     
-%    %Label well cells
-    %G.cells.tag = logical(wellType);
+    %wellType = wellType + cellsContPts(G, wellPts(removed(1:size(wellPts,1)),:));
+    %label fault faces.
+    N = G.faces.neighbors + 1;
+    faultType = [0; faultType];
+    ft1 = faultType(N(:,1));
+    ft2 = faultType(N(:,2));
+    G.faces.tag = logical(ft1==ft2 & ft1 > 0 & ft2 > 0);
+    
+    %Label well cells
+    G.cells.tag = logical(wellType);
 
     varargout{1} = G;
     if nargout > 1
@@ -137,13 +147,13 @@ function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
     
     n = 50;
     theta = (linspace(0,2*pi,n))';
-    for i = 1:size(fixedPts,1)
+    for i = 1:size(fixedPts,1)-size(corners,1)
         x =  fixedPts(i,1) + gridSpacing(i)*cos(theta);
         y = fixedPts(i,2) + gridSpacing(i)*sin(theta);
-            plot(x,y);
-        
+        plot(x,y);     
     end
 end
+
 
 
 function [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, ...
