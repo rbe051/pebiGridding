@@ -96,7 +96,7 @@
 % 
 % %l = {[0.4,0.2;0.8,0.8],[0.5,0.25;0.6,0.9],[0.4,0.7;0.8,0.65]};    
 % 
-% Gp = compositeGridPEBI([50,50], [1, 1], 'faultLines', l, 'faultGridSize',1/50,...
+% Gp = compositeGridPEBI([1/49,-1,-1], [1, 1], 'faultLines', l, 'faultGridSize',1/50,...
 %                         'fullFaultEdge', 1, 'circleFactor', 0.6);
 % 
 % plotGrid(Gp, 'faceColor', 'none')
@@ -161,18 +161,48 @@
 
 %%
 % % Test of well grid points
+% close all
+% 
+% x = linspace(0.2,0.8);
+% wellLine = {[0.7105,0.1842], ...
+%             [0.2,0.1842], ...
+%             [x', 0.5*sin(pi*x)'+0.2]};%, ...
+%             %[0.3,0.3;0.7,0.8]}
+%             
+% 
+% Gp = compositeGridPEBI([1/19,0.02,1/40], [1, 1], 'wellLines', wellLine, 'padding', 1, ...
+%                         'wellGridSize',0.02, 'mlqtMaxLevel', 2, ...
+%                         'mlqtLevelSteps',[0.07,0.03]');
+% 
+% figure()
+% hold on
+% plotGrid(Gp, 'faceColor', 'none')
+% axis equal tight off
+% hold on
+% %plotFault(Gp)
+% %plotWells(Gp)
+% for i = 1:numel(wellLine)
+%   line = wellLine{i};
+%   if size(line,1) == 1
+%       plot(line(1,1), line(1,2),'.r', 'markersize', 8);
+%   end
+%   plot(line(:, 1), line(:, 2),'r');
+% end
+% 
+% 
+% 
+%% Complex wells intersecting
 close all
 
 x = linspace(0.2,0.8);
-wellLine = {[0.7105,0.1842], ...
-            [0.2,0.1842], ...
-            [x', 0.5*sin(pi*x)'+0.2]};%, ...
-            %[0.3,0.3;0.7,0.8]}
-            
+wellLine = {[0.5,0.2; 0.5,0.3;0.47,0.4;0.4,0.5; 0.33,0.6;0.26,0.7], ...
+            [0.5,0.3;0.53,0.4;0.58,0.5],...
+            [0.5,0.45;0.5,0.55;0.45,0.65;0.4,0.75;0.38,0.85],...
+            [0.5,0.55;0.55,0.65;0.6,0.75;0.62,0.85]};
+                        
 
-Gp = compositeGridPEBI([1/19,0.02,1/40], [1, 1], 'wellLines', wellLine, 'padding', 1, ...
-                        'wellGridSize',0.02, 'mlqtMaxLevel', 2, ...
-                        'mlqtLevelSteps',[0.07,0.03]');
+Gp = compositeGridPEBI(1/19, [1, 1], 'wellLines', wellLine,...
+                      'mlqtMaxLevel', 2, 'mlqtLevelSteps',[0.07,0.035]');
 
 figure()
 hold on
@@ -189,38 +219,7 @@ for i = 1:numel(wellLine)
   plot(line(:, 1), line(:, 2),'r');
 end
 
-
-
-% %% Complex wells intersecting
-% close all
-% 
-% x = linspace(0.2,0.8);
-% wellLine = {[0.5,0.2; 0.5,0.3;0.47,0.4;0.4,0.5; 0.33,0.6;0.26,0.7], ...
-%             [0.5,0.3;0.53,0.4;0.58,0.5],...
-%             [0.5,0.45;0.5,0.55;0.45,0.65;0.4,0.75;0.38,0.85],...
-%             [0.5,0.55;0.55,0.65;0.6,0.75;0.62,0.85]};
-%                         
-% 
-% Gp = compositeGridPEBI([20,20], [1, 1], 'wellLines', wellLine, 'padding', 1, ...
-%                         'wellGridSize',0.02, 'mlqtMaxLevel', 2, ...
-%                         'mlqtLevelSteps',[0.07,0.035]');
-% 
-% figure()
-% hold on
-% plotGrid(Gp, 'faceColor', 'none')
-% axis equal tight off
-% hold on
-% %plotFault(Gp)
-% %plotWells(Gp)
-% for i = 1:numel(wellLine)
-%   line = wellLine{i};
-%   if size(line,1) == 1
-%       plot(line(1,1), line(1,2),'.r', 'markersize', 8);
-%   end
-%   plot(line(:, 1), line(:, 2),'r');
-% end
-
-% %% wells Intersecting fracture
+%% wells Intersecting fracture
 % close all
 % 
 % wellLine = {[0.6,0.2;0.65,0.6],...        
@@ -230,10 +229,9 @@ end
 %         
 % fracture = {[0.2,0.8;0.8,0.2]};
 %       
-% Gp = compositeGridPEBI([25,25], [1, 1], 'wellLines', wellLine,'faultLines',fracture,...
-%                         'faultGridSize', 0.03, 'circleFactor', 0.6,'padding', 1,...
-%                         'wellGridSize',0.02, 'mlqtMaxLevel', 0, ...
-%                         'mlqtLevelSteps',[0.12,0.06,0.04]');
+% Gp = compositeGridPEBI([1/24,1/26/2,1/24/sqrt(2)], [1, 1], ...
+%                        'wellLines', wellLine,'faultLines',fracture,...
+%                         'circleFactor', 0.6);
 % 
 % figure()
 % hold on
@@ -242,8 +240,8 @@ end
 % hold on
 % plotFault(Gp)
 % plotWells(Gp)
-% 
-% %% Wells intersecting fracture multilevel
+
+%% Wells intersecting fracture multilevel
 % close all
 % 
 % wellLine = {[0.6,0.2;0.65,0.6],...        
@@ -253,9 +251,9 @@ end
 %         
 % fracture = {[0.2,0.8;0.8,0.2]};
 %       
-% Gp = compositeGridPEBI([25,25], [1, 1], 'wellLines', wellLine,'faultLines',fracture,...
-%                         'faultGridSize', 0.03, 'circleFactor', 0.6,'padding', 1,...
-%                         'wellGridSize',0.006, 'mlqtMaxLevel', 2, ...
+% Gp = compositeGridPEBI([1/24,0.006,0.03], [1, 1], 'wellLines', wellLine,'faultLines',fracture,...
+%                          'circleFactor', 0.6,'padding', 1,...
+%                          'mlqtMaxLevel', 2, ...
 %                         'mlqtLevelSteps',[0.06,0.02]');
 % 
 % figure()

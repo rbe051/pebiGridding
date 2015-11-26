@@ -1,89 +1,108 @@
-function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
+function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
         
-    opt = struct('padding', 1, ...
-                 'wellLines', {{}}, ...
-                 'wellGridSize', -1, ...
+    opt = struct('wellLines', {{}}, ...
+                 'wellGridFactor', -1, ...
                  'mlqtMaxLevel', 0, ...
                  'mlqtLevelSteps', -1, ...
                  'faultLines', {{}}, ...
-                 'faultGridSize', -1, ...
+                 'faultGridFactor', -1, ...
                  'circleFactor', 0.6, ...
-                 'fullFaultEdge', 1);         
+                 'fullFaultEdge', 1,...
+                 'priOrder', []);         
+    
+    %% Set options
     opt = merge_options(opt, varargin{:});
-             
-    assert(numel(gridSizes) == 3)
+    % Set grid sizes
+    wellGridFactor = opt.wellGridFactor;
+    if wellGridFactor < 0
+        wellGridFactor = 0.5;
+    end
+    faultGridFactor = opt.faultGridFactor;
+    if faultGridFactor < 0
+        faultGridFactor = 0.5;
+    end
+    wellGridSize = resGridSize*wellGridFactor;
+    faultGridSize = resGridSize*faultGridFactor;
+    mlqtMaxLevel = opt.mlqtMaxLevel;
+    mlqtLevelSteps = opt.mlqtLevelSteps;
+    
+    % Load faults and Wells
+    faultLines = opt.faultLines;
+    wellLines = opt.wellLines;
+    nFault = numel(faultLines);
+    nWell = numel(wellLines);
+    linesToGrid = [wellLines, faultLines{:}];
+    isWell = [true(nWell,1); false(nFault,1)];
+    
+    % Set priority index
+    priOrder = opt.priOrder;
+    if isempty(priOrder)
+        priOrder = 1:nFault+nWell;
+    else
+        assert(numel(priOrder) == nFault + nWell);
+    end
+    % Sort faults and wells in priority
+    linesToGrid = linesToGrid(priOrder);
+    isWell = isWell(priOrder);
+    
 
-    resGridSize = gridSizes(1);
-    wellGridSize = gridSizes(2);
-    faultGridSize = gridSizes(3);
 
-
+    %% Initialize variables.
     faultType = [];
-    wellType = [];
+    wellType = logical([]);
     priIndex = [];
     gridSpacing = [];
 
-    
-    %%
-    %%Create well grid points
-    if wellGridSize == -1
-        wellGridSize = resGridSize/2;
-    end
-    
-    wellPts = [];
-    for i = 1:numel(opt.wellLines)
-        wellLine = opt.wellLines{i};
-        [newWellPts,wellSpace] = createWellGridPoints(wellLine, wellGridSize);
-        np = size(newWellPts,1);
-        faultType = [faultType; zeros(np,1)];
-        wellType = [wellType; ones(np,1)];
-        priIndex = [priIndex; (2+i)*ones(np,1)];
-        gridSpacing = [gridSpacing; wellSpace];
-        wellPts= [wellPts; newWellPts];
-    end
-    
-    %%
-    %%Create Fault grid points:
-    fracPts = []; 
+    Pts = [];
     faultCenter = [];
     faultRadius = [];
-    faultToCenter = zeros(size(wellPts,1),1);
-    faultPos = size(wellPts,1)+1;
-    if opt.faultGridSize ==-1
-        faultGridSize = resGridSize/2;
-    end
-    if size(priIndex,1)<1
-        maxWellPri = 2;
-    else
-        maxWellPri = priIndex(end);
-    end
+    faultToCenter = [];
+    faultPos = [];
 
+
+    %% Place fault and well points
     lastFaultType = 0;
     lastCCid = 0;
-    for i = 1:numel(opt.faultLines)
-        fracLine = opt.faultLines{i};    
-        [newFracPts, fracSpace, CC, CR,CCid] = createFracGridPoints(fracLine,...
-                                                               faultGridSize,...
-                                                               opt.circleFactor);
+    for i = 1:nFault + nWell
+        if isWell(i)
+            wellLine = linesToGrid{i};
+            [wellPts,wellSpace] = createWellGridPoints(wellLine, wellGridSize);
+            np = size(wellPts,1);
+            faultType = [faultType; zeros(np,1)];
+            wellType = [wellType; true(np,1)];
+            priIndex = [priIndex; (2+i)*ones(np,1)];
+            gridSpacing = [gridSpacing; wellSpace];
+            Pts= [Pts; wellPts];
+            faultToCenter = [faultToCenter; zeros(size(wellPts,1),1)];
+        else
+            fracLine = linesToGrid{i};    
+            [faultPts, fracSpace, CC, CR,CCid] = createFracGridPoints(fracLine,...
+                                                                   faultGridSize,...
+                                                                   opt.circleFactor);
+            nl = size(faultPts,1)/2;
+            if nl==0
+                continue
+            end
 
-        nl = size(newFracPts,1)/2;
-        if nl==0
-            continue
+            newFaultType = lastFaultType+1:lastFaultType+nl;
+            lastFaultType = newFaultType(end);
+            faultType = [faultType; newFaultType';newFaultType'];        % 2*i-1rldecode([2*i-1; 2*i], [nl; nl])];
+            wellType  = [wellType; false(2*nl,1)];
+            priIndex = [priIndex; (2+i)*ones(2*nl,1)];
+            gridSpacing = [gridSpacing;fracSpace];
+            if isempty(faultPos)
+                faultPos = size(Pts,1) + 1;
+            end
+            faultPos = [faultPos; size(Pts,1)+1+size(faultPts,1)];
+            Pts = [Pts;faultPts];
+            faultCenter = [faultCenter; CC]; % I think there is a bug here
+            faultRadius = [faultRadius; CR]; % because wells and faults may
+            faultToCenter = [faultToCenter;lastCCid+CCid]; % be interchanged
+            lastCCid = faultToCenter(end)+1;
+
         end
-        
-        newFaultType = lastFaultType+1:lastFaultType+nl;
-        lastFaultType = newFaultType(end);
-        faultType = [faultType; newFaultType';newFaultType'];        % 2*i-1rldecode([2*i-1; 2*i], [nl; nl])];
-        wellType  = [wellType; zeros(2*nl,1)];
-        priIndex = [priIndex; (maxWellPri+i)*ones(2*nl,1)];
-        gridSpacing = [gridSpacing;fracSpace];
-        fracPts = [fracPts;newFracPts];
-        faultCenter = [faultCenter; CC];
-        faultRadius = [faultRadius; CR];
-        faultToCenter = [faultToCenter;lastCCid+CCid]; 
-        lastCCid = faultToCenter(end)+1;
-        faultPos = [faultPos; faultPos(end)+size(newFracPts,1)];
     end
+    
 
     %%
     %% Create reservoir grid
@@ -93,28 +112,24 @@ function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
     vy = 0:dy:pdims(2);
     [X, Y] = meshgrid(vx, vy);
 
-    nx = numel(vx);
-    ny = numel(vy);
-    [ii, jj] = meshgrid(1:nx, 1:ny);
+%    nx = numel(vx);
+%    ny = numel(vy);
+%    [ii, jj] = meshgrid(1:nx, 1:ny);
+%     nedge = 1;
+%     exterior = (ii <= nedge | ii > nx - nedge) | ...
+%                (jj <= nedge | jj > ny - nedge);
+% 
+%     interior = ~exterior;
+% 
+%     X(interior) = X(interior);
+%     Y(interior) = Y(interior);
+     resPtsInit = [X(:), Y(:)];
 
-    nedge = opt.padding;
-    maxLev = opt.mlqtMaxLevel;
-    distTol = opt.mlqtLevelSteps;
-    
-    exterior = (ii <= nedge | ii > nx - nedge) | ...
-               (jj <= nedge | jj > ny - nedge);
-
-    interior = ~exterior;
-
-    X(interior) = X(interior);
-    Y(interior) = Y(interior);
-    resPtsInit = [X(:), Y(:)];
-
-    if size(wellPts,1)>0
+    if any(wellType)
         res = {};
-        varArg = {'level', 1, 'maxLev', maxLev, 'distTol', distTol};
+        varArg = {'level', 1, 'maxLev', mlqtMaxLevel, 'distTol', mlqtLevelSteps};
         for i = 1:size(resPtsInit,1)
-            res = [res; mlqt(resPtsInit(i,:), wellPts, dx, varArg{:})];
+            res = [res; mlqt(resPtsInit(i,:), Pts(wellType,:), dx, varArg{:})];
         end
         resPts = vec2mat([res{:,1}],2);
         resGridSize = 0.5*[res{:,2}]';
@@ -124,15 +139,13 @@ function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
     end
     
     faultType = [faultType; zeros(size(resPts,1),1)];
-    wellType = [wellType; zeros(size(resPts,1),1)];
-    priIndex = [priIndex; ones(size(resPts, 1), 1)];
+    wellType = [wellType; false(size(resPts,1),1)];
+    priIndex = [priIndex; max(priIndex) + ones(size(resPts, 1), 1)];
     gridSpacing = [gridSpacing; resGridSize]; %(1-10^-6)*min(dx,dy)*ones(size(resPts,1),1)];
     
+    Pts = [Pts;resPts];
     
-    %%
-    % Put grid Points together
-    Pts = [wellPts;fracPts;resPts];
-    
+    % Remove Conflic Points
     [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, priIndex, wellType);
         
     faultType = faultType(~removed);
@@ -192,25 +205,23 @@ function varargout = compositeGridPEBI(gridSizes, pdims, varargin)
         varargout{2} = indicator;
     end
     
-    %     figure()
-%     hold on
-%     plot(Pts(logical(wellType),1),Pts(logical(wellType),2),'.')
-%        figure()
-%     hold on
-%        %       hold on
-%        plot(Pts(:,1),Pts(:,2),'r.')
-% %       plot(fracPts(:,1), fracPts(:,2),'r.')
-%       plotGrid(G,'facecolor','none')
-%     
-%     n = 50
-%     theta = (linspace(0,2*pi,n))';
-%     for i = 1:size(Pts,1)
-%         if faultType(i)
-%         x = Pts(i,1) + gridSpacing(i)*cos(theta);
-%         y = Pts(i,2) + gridSpacing(i)*sin(theta);
-%         plot(x,y);
-%         end
-%     end
+        figure()
+    hold on
+    plot(Pts(logical(wellType),1),Pts(logical(wellType),2),'.')
+       %       hold on
+       plot(Pts(:,1),Pts(:,2),'r.')
+%       plot(fracPts(:,1), fracPts(:,2),'r.')
+      plotGrid(G,'facecolor','none')
+    
+    n = 50
+    theta = (linspace(0,2*pi,n))';
+    for i = 1:size(Pts,1)
+        if wellType(i)
+        x = Pts(i,1) + gridSpacing(i)*cos(theta);
+        y = Pts(i,2) + gridSpacing(i)*sin(theta);
+        plot(x,y);
+        end
+    end
 end
 
 
@@ -229,7 +240,7 @@ function [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, ...
         %sumToClose = sumToClosePts(dlt);
         %sumToClose = sumToClose(find(sumToClose));
         %[~, Is] = sort(sumToClose,'descend');
-        [~, Ii ] = sort(priIndex(Ic), 'ascend');
+        [~, Ii ] = sort(priIndex(Ic), 'descend');
 
         removePoint = Ic(Ii(1));
         if wellType(removePoint)
