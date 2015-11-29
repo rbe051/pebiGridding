@@ -124,10 +124,12 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     fixedPts = [fixedPts; corners]; %Add these to fault and well type later
     
     % create distance function
-    
-    h = @(x) min((ones(size(x,1),1)/wellGridFactor), ...
-                 min(exp(pdist2(x,fixedPts(wellType,:))/wellEps),[],2));
-    
+    if nWell>0
+        h = @(x) min((ones(size(x,1),1)/wellGridFactor), ...
+                     min(exp(pdist2(x,fixedPts(wellType,:))/wellEps),[],2));
+    else
+        h = @(p) huniform(p)/wellGridFactor;
+    end
     [Pts,t, sort] = distmesh2d(fd, h, wellGridSize,[0,0;x(1),x(2)], fixedPts);
     nNewPts = size(Pts,1) - size(faultType,1);
     
@@ -147,33 +149,35 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     faultType = [0; faultType];
     ft1 = faultType(N(:,1));
     ft2 = faultType(N(:,2));
-    G.faces.tag = logical(ft1==ft2 & ft1 > 0 & ft2 > 0);
+    G.faces.isFault = logical(ft1==ft2 & ft1 > 0 & ft2 > 0);
     
     %Label well cells
-    G.cells.tag = logical(wellType);
+    G.cells.isWell= logical(wellType);
 
     varargout{1} = G;
     if nargout > 1
         varargout{2} = indicator;
     end
     
-    figure()
-     hold on
-%     plot(Pts(logical(wellType),1),Pts(logical(wellType),2),'.')
-%        figure()
-%     hold on
-%        %       hold on
-%       plot(Pts(:,1),Pts(:,2),'r.')
-    plot(fixedPts(:,1), fixedPts(:,2),'r.')
-    plotGrid(G,'facecolor','none')
     
-    n = 50;
-    theta = (linspace(0,2*pi,n))';
-    for i = 1:size(fixedPts,1)-size(corners,1)
-        x =  fixedPts(i,1) + gridSpacing(i)*cos(theta);
-        y = fixedPts(i,2) + gridSpacing(i)*sin(theta);
-        plot(x,y);     
-    end
+    %% Plotting for debugging.
+%     figure()
+%      hold on
+% %     plot(Pts(logical(wellType),1),Pts(logical(wellType),2),'.')
+% %        figure()
+% %     hold on
+% %        %       hold on
+% %       plot(Pts(:,1),Pts(:,2),'r.')
+%     plot(fixedPts(:,1), fixedPts(:,2),'r.')
+%     plotGrid(G,'facecolor','none')
+%     
+%     n = 50;
+%     theta = (linspace(0,2*pi,n))';
+%     for i = 1:size(fixedPts,1)-size(corners,1)
+%         x =  fixedPts(i,1) + gridSpacing(i)*cos(theta);
+%         y = fixedPts(i,2) + gridSpacing(i)*sin(theta);
+%         plot(x,y);     
+%     end
 end
 
 

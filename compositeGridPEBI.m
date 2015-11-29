@@ -195,33 +195,34 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
     faultType = [0; faultType];
     ft1 = faultType(N(:,1));
     ft2 = faultType(N(:,2));
-    G.faces.tag = logical(ft1 == ft2 & ft1 > 0 & ft2 >0);
+    G.faces.isFault = logical(ft1 == ft2 & ft1 > 0 & ft2 >0);
     
     %Label well cells
-    G.cells.tag = logical(wellType);
+    G.cells.isWell = logical(wellType);
 
     varargout{1} = G;
     if nargout > 1
         varargout{2} = indicator;
     end
-    
-        figure()
-    hold on
-    plot(Pts(logical(wellType),1),Pts(logical(wellType),2),'.')
-       %       hold on
-       plot(Pts(:,1),Pts(:,2),'r.')
-%       plot(fracPts(:,1), fracPts(:,2),'r.')
-      plotGrid(G,'facecolor','none')
-    
-    n = 50
-    theta = (linspace(0,2*pi,n))';
-    for i = 1:size(Pts,1)
-        if wellType(i)
-        x = Pts(i,1) + gridSpacing(i)*cos(theta);
-        y = Pts(i,2) + gridSpacing(i)*sin(theta);
-        plot(x,y);
-        end
-    end
+ 
+%% Plotting for debugging.
+%         figure()
+%     hold on
+%     plot(Pts(logical(wellType),1),Pts(logical(wellType),2),'.')
+%        %       hold on
+%        plot(Pts(:,1),Pts(:,2),'r.')
+% %       plot(fracPts(:,1), fracPts(:,2),'r.')
+%       plotGrid(G,'facecolor','none')
+%     
+%     n = 50;
+%     theta = (linspace(0,2*pi,n))';
+%     for i = 1:size(Pts,1)
+%         if wellType(i)
+%         x = Pts(i,1) + gridSpacing(i)*cos(theta);
+%         y = Pts(i,2) + gridSpacing(i)*sin(theta);
+%         plot(x,y);
+%         end
+%     end
 end
 
 

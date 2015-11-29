@@ -1,6 +1,6 @@
 function [] = plotFault(Gp)
 
-    faultNodes = find(Gp.faces.tag);
+    faultNodes = find(Gp.faces.isFault);
     numFaultLine = length(faultNodes);
 
     faultsLine = {};

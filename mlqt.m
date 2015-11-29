@@ -9,7 +9,7 @@ function [res] = mlqt(cellCenter, bndr, cellSize, varargin)
     maxLev = opt.maxLev;
     
     if level> maxLev
-        res = {cellCenter, cellSize*(1-10^-6)};
+        res = {cellCenter, cellSize};
         return
     end
     
@@ -18,7 +18,7 @@ function [res] = mlqt(cellCenter, bndr, cellSize, varargin)
     
     if size(opt.distTol,1)==1
         if opt.distTol <= 0
-            distTol = 1.5*cellSize/2;
+            distTol = 2.5*cellSize/2;
         else
             distTol = opt.distTol;
         end
