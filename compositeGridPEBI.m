@@ -7,7 +7,7 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
                  'faultLines', {{}}, ...
                  'faultGridFactor', -1, ...
                  'circleFactor', 0.6, ...
-                 'fullFaultEdge', 1,...
+                 'fullFaultEdge', 0,...
                  'priOrder', []);         
     
     %% Set options
@@ -179,7 +179,25 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
         end
         remove = logical(remove);
         faultCenter = faultCenter(~remove,:);
-        faultRadius = faultRadius(~remove);
+        faultRadius = faultRadius(~remove);%     figure()
+%     hold on
+%     faultType = faultType(2:end);
+%     plot(Pts(logical(faultType),1),Pts(logical(faultType),2),'.')
+%        %       hold on
+%     plot(Pts(:,1),Pts(:,2),'r.')
+% %       plot(fracPts(:,1), fracPts(:,2),'r.')
+%     plotGrid(G,'facecolor','none')
+%     
+%     n = 50;
+%     theta = (linspace(0,2*pi,n))';
+%     for i = 1:size(Pts,1)
+%         if true %faultType(i)
+%             x = Pts(i,1) + gridSpacing(i)*cos(theta);
+%             y = Pts(i,2) + gridSpacing(i)*sin(theta);
+%             plot(x,y);
+%         end
+%     end
+
         [Pts, removed] = enforceSufficientFaultCondition(Pts, faultType, faultCenter, faultRadius);
         faultType = faultType(~removed);
         wellType = wellType(~removed);
@@ -205,22 +223,26 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
         varargout{2} = indicator;
     end
  
+    
+
 %% Plotting for debugging.
-%         figure()
+%     figure()
 %     hold on
-%     plot(Pts(logical(wellType),1),Pts(logical(wellType),2),'.')
+%     faultType = faultType(2:end);
+%     plot(Pts(logical(faultType),1),Pts(logical(faultType),2),'ro')
+%     plot(Pts(~logical(faultType),1),Pts(~logical(faultType),2),'bo')
 %        %       hold on
-%        plot(Pts(:,1),Pts(:,2),'r.')
+%     plot(Pts(:,1),Pts(:,2),'r.')
 % %       plot(fracPts(:,1), fracPts(:,2),'r.')
-%       plotGrid(G,'facecolor','none')
+%     plotGrid(G,'facecolor','none')
 %     
 %     n = 50;
 %     theta = (linspace(0,2*pi,n))';
 %     for i = 1:size(Pts,1)
-%         if wellType(i)
-%         x = Pts(i,1) + gridSpacing(i)*cos(theta);
-%         y = Pts(i,2) + gridSpacing(i)*sin(theta);
-%         plot(x,y);
+%         if true %faultType(i)
+%             x = Pts(i,1) + gridSpacing(i)*cos(theta);
+%             y = Pts(i,2) + gridSpacing(i)*sin(theta);
+%             plot(x,y);
 %         end
 %     end
 end
