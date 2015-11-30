@@ -27,35 +27,7 @@ addpath('../')
 %                            
 % Gp.cells
 % Gdist.cells
-% 
-% figure()
-% hold on
-% plotGrid(Gp, 'faceColor', 'none')
-% axis equal tight off
-% hold on
-% %plotFault(Gp)
-% %plotWells(Gp)
-% for i = 1:numel(wellLine)
-%   line = wellLine{i};
-%   if size(line,1) == 1
-%       plot(line(1,1), line(1,2),'.r', 'markersize', 8);
-%   end
-%   plot(line(:, 1), line(:, 2),'r');
-% end
-% figure()
-% hold on
-% plotGrid(Gdist, 'faceColor', 'none')
-% axis equal tight off
-% hold on
-% %plotFault(Gp)
-% %plotWells(Gp)
-% for i = 1:numel(wellLine)
-%   line = wellLine{i};
-%   if size(line,1) == 1
-%       plot(line(1,1), line(1,2),'.r', 'markersize', 8);
-%   end
-%   plot(line(:, 1), line(:, 2),'r');
-% end
+
 
 
 %% Single fault intersected by several wells 
@@ -105,16 +77,16 @@ Gdist.cells
 %             [0.5,0.55;0.55,0.65;0.6,0.75;0.62,0.85]};
 %                         
 % 
-% Gp = compositeGridPEBI(1/19, [1, 1], 'wellLines', wellLine, ...
-%                       'wellGridFactor', 0.02*19, ...
-%                       'mlqtMaxLevel', 2, 'mlqtLevelSteps',[0.07,0.035]');
+% %Gp = compositeGridPEBI(1/19, [1, 1], 'wellLines', wellLine, ...
+% %                      'wellGridFactor', 0.02*19, ...
+% %                      'mlqtMaxLevel', 2, 'mlqtLevelSteps',[0.07,0.035]');
 % Gdist = compositeGridPEBIdistmesh(1/19, [1, 1], 'wellLines', wellLine, ...
 %                                  'wellGridFactor', 0.02*19, 'wellRefDist',1/5);
 %                   
 %                   
-% Gp.cells
+% %Gp.cells
 % Gdist.cells
-%                             
+                            
 %% Plotting                       
 orange = [1,138/255,0.1];      
 figure()
@@ -142,7 +114,7 @@ hold on
 plotGrid(Gdist, 'faceColor', 'none')
 axis equal tight off
 hold on
-%&plotFault(Gdist)
+%plotFault(Gdist)
 plotWells(Gdist)
 for i = 1:numel(wellLine)
   line = wellLine{i};
