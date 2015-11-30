@@ -129,7 +129,7 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     else
         h = @(p) huniform(p)/wellGridFactor;
     end
-    [Pts,t , sort] = distmesh2d(fd, h, wellGridSize,[0,0;x(1),x(2)], fixedPts);
+    [Pts,t,sort] = distmesh2d(fd, h, wellGridSize,[0,0;x(1),x(2)], fixedPts);
     nNewPts = size(Pts,1) - size(faultType,1);
     
     faultType = [faultType;zeros(nNewPts,1)];

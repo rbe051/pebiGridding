@@ -59,7 +59,7 @@ addpath('../')
 
 
 %% Single fault intersected by several wells 
-%close all
+close all
 
 wellLine = {[0.6,0.2;0.65,0.6],...        
             [0.3,0.3;0.7,0.8],...
@@ -86,12 +86,12 @@ Gp = compositeGridPEBI(1/24, [1, 1], ...
                         'mlqtLevelSteps',[0.06,0.025]');
 
 Gdist = compositeGridPEBIdistmesh(1/24, [1, 1], 'wellLines', wellLine, ...
-                                'wellGridFactor', 0.5^2, 'wellRefDist',1/19, ...
+                                'wellGridFactor', 0.5^2, 'wellRefDist',1/12, ...
                                 'faultlines', fracture, 'circleFactor', .6,...
                                 'faultGridFactor', 1/sqrt(2));
 
 Gp.cells
-%Gdist.cells
+Gdist.cells
 
 
 
