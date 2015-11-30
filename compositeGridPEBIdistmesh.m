@@ -111,8 +111,7 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
         wellType = wellType(~removed);
         faultType = faultType(~removed);
         gridSpacing = gridSpacing(~removed);
-        %priIndex = priIndex(~removed); This should be added if you dicide
-                                       % To use priIndex later.
+        priIndex = priIndex(~removed);
     end
     %%
     %% Create grid
@@ -126,20 +125,46 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     % create distance function
     if nWell>0
         h = @(x) min((ones(size(x,1),1)/wellGridFactor), ...
-                     min(exp(pdist2(x,fixedPts(wellType,:))/wellEps),[],2));
+                     min(1.2*exp(pdist2(x,fixedPts(wellType,:))/wellEps),[],2));
     else
         h = @(p) huniform(p)/wellGridFactor;
     end
-    [Pts,t, sort] = distmesh2d(fd, h, wellGridSize,[0,0;x(1),x(2)], fixedPts);
+    [Pts,t , sort] = distmesh2d(fd, h, wellGridSize,[0,0;x(1),x(2)], fixedPts);
     nNewPts = size(Pts,1) - size(faultType,1);
     
     faultType = [faultType;zeros(nNewPts,1)];
     wellType = [wellType;zeros(nNewPts,1)];
+    gridSpacing = [gridSpacing;zeros(nNewPts,1)];
+    priIndex = [priIndex; max(priIndex) + ones(nNewPts,1)];
     
     faultType = faultType(sort);
     wellType = wellType(sort);
-    
-    
+    gridSpacing = gridSpacing(sort);
+    priIndex = priIndex(sort);
+    %gridSpacing(logical(wellType)) = gridSpacing(logical(wellType));
+
+
+    %% Remove new conflict  points
+    [Pts,removed,wellType]=removeConflictPoints(Pts, ...
+                                                gridSpacing,...
+                                                priIndex, ...
+                                                wellType);        
+    wellType = wellType(~removed);
+    faultType = faultType(~removed);
+    %gridSpacing = gridSpacing(~removed); % Should be added of used later
+    %priIndex = priIndex(~removed);
+    t = delaunay(Pts);
+    pmid=(Pts(t(:,1),:)+Pts(t(:,2),:)+Pts(t(:,3),:))/3;    % Compute centroids
+    t=t(feval(fd,pmid)<-0.001*wellGridFactor,:);  % Keep interior triangles
+
+    [Pts,t, ~, sort]=fixmesh(Pts,t);
+    faultType = faultType(sort);
+    wellType = wellType(sort);
+    %gridSpacing = gridSpacing(sort);
+    %priIndex = priIndex(sort);
+    %%
+    almost0 = Pts(:,1)<0.00001;
+    %Pts(almost0,1) = 0;
     G = triangleGrid(Pts, t);
     G = pebi(G);
 
