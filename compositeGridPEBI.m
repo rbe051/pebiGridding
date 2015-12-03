@@ -8,7 +8,8 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
                  'faultGridFactor', -1, ...
                  'circleFactor', 0.6, ...
                  'fullFaultEdge', 0,...
-                 'priOrder', []);         
+                 'priOrder', [], ...
+                 'padding', 0);         
     
     %% Set options
     opt = merge_options(opt, varargin{:});
@@ -106,24 +107,20 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
 
     %%
     %% Create reservoir grid
+    padding = opt.padding;
+    assert(padding == 1 | padding == 0);
     dx = resGridSize;
     dy = dx;
-    vx = 0:dx:pdims(1);
-    vy = 0:dy:pdims(2);
+    if padding
+        vx = [-dx/2,dx/2:dx:pdims(1)-dx/2, pdims(1) + dx/2];
+        vy = [-dy/2,dy/2:dy:pdims(2)-dy/2, pdims(2) + dy/2];
+    else 
+        vx = 0:dx:pdims(1);
+        vy = 0:dy:pdims(2);
+    end
     [X, Y] = meshgrid(vx, vy);
 
-%    nx = numel(vx);
-%    ny = numel(vy);
-%    [ii, jj] = meshgrid(1:nx, 1:ny);
-%     nedge = 1;
-%     exterior = (ii <= nedge | ii > nx - nedge) | ...
-%                (jj <= nedge | jj > ny - nedge);
-% 
-%     interior = ~exterior;
-% 
-%     X(interior) = X(interior);
-%     Y(interior) = Y(interior);
-     resPtsInit = [X(:), Y(:)];
+    resPtsInit = [X(:), Y(:)];
 
     if any(wellType)
         res = {};
@@ -206,7 +203,7 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
     Tri = delaunayTriangulation(Pts);
     G = triangleGrid(Pts, Tri.ConnectivityList);
     G = pebi(G);
-
+    G = computeGeometry(G);
     %wellType = wellType + cellsContPts(G, wellPts(removed(1:size(wellPts,1)),:));
     % label fault faces.
     N = G.faces.neighbors + 1;
@@ -218,6 +215,13 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
     %Label well cells
     G.cells.isWell = logical(wellType);
 
+    %% Remove padding.
+    if padding
+        centroids = G.cells.centroids;
+        remPad  = centroids(:,1)< 0 | centroids(:,1) > pdims(1) ...
+                | centroids(:,2)< 0 | centroids(:,2) > pdims(2);
+        G = removeCells(G, remPad);
+    end
     varargout{1} = G;
     if nargout > 1
         varargout{2} = indicator;
