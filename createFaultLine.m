@@ -9,7 +9,6 @@ if size(p,1)<3, return; end
 N=size(p,1);                                         % Number of points N
 
 count=0;
-clf,view(2),axis equal,axis off
 while 1 & count<1000
   count=count+1;
   % 2. Calculate distances, and wanted distances
@@ -21,7 +20,7 @@ while 1 & count<1000
   F = dw - d;                                       % Bar forces (scalars)
   d(count) = d(count) + F(count);                   % New bar lengths
   p = interpLine(line,d);                           % Update node positions
-  plot(p(:,1), p(:,2), '.')
+  
   % 4. Termination criterion: All bar length is close to wanted length(scaled)
   if count>=size(p,1)-1, break; end
 end

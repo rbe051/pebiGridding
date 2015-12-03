@@ -76,8 +76,6 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
             fixedPts= [fixedPts; wellPts];
         end
     end
-    
-    
     %% create distance function
     if nWell>0
         h = @(x) min((ones(size(x,1),1)/wellGridFactor), ...
@@ -113,6 +111,8 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
            %faultPos = [faultPos; faultPos(end)+size(newFracPts,1)]; 
        end
     end
+    
+
     %% Remove fault and well conflic points
     if size(fixedPts,1)>1
         [fixedPts,removed,wellType]=removeConflictPoints(fixedPts, ...
@@ -124,6 +124,8 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
         gridSpacing = gridSpacing(~removed);
         priIndex = priIndex(~removed);
     end
+    
+
     %%
     %% Create grid
     % set dist function
@@ -147,7 +149,6 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     priIndex = priIndex(sort);
     %gridSpacing(logical(wellType)) = gridSpacing(logical(wellType));
 
-
     %% Remove new conflict  points
     [Pts,removed,wellType]=removeConflictPoints(Pts, ...
                                                 gridSpacing,...
@@ -169,6 +170,7 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     %%
     G = triangleGrid(Pts, t);
     G = pebi(G);
+    
 
     %wellType = wellType + cellsContPts(G, wellPts(removed(1:size(wellPts,1)),:));
     %label fault faces.

@@ -179,7 +179,9 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
         end
         remove = logical(remove);
         faultCenter = faultCenter(~remove,:);
-        faultRadius = faultRadius(~remove);%     figure()
+        faultRadius = faultRadius(~remove);    
+        
+        %     figure()
 %     hold on
 %     faultType = faultType(2:end);
 %     plot(Pts(logical(faultType),1),Pts(logical(faultType),2),'.')
@@ -202,6 +204,7 @@ function varargout = compositeGridPEBI(resGridSize, pdims, varargin)
         faultType = faultType(~removed);
         wellType = wellType(~removed);
     end
+    
     %% Create Grid
     Tri = delaunayTriangulation(Pts);
     G = triangleGrid(Pts, Tri.ConnectivityList);
