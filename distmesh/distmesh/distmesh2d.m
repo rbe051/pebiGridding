@@ -127,5 +127,5 @@ if count == 100
 end
 
 % Clean up and plot final mesh
-[p,t, ~, sorting]=fixmesh(p,t);
+[~,t, ~, sorting]=fixmesh(p,t);
 simpplot(p,t)

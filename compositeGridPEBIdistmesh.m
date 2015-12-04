@@ -72,7 +72,7 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
             np = size(wellPts,1);
             faultType = [faultType; zeros(np,1)];
             wellType = [wellType; true(np,1)];
-            priIndex =[priIndex; i*ones(2*np,1)];
+            priIndex =[priIndex; i*ones(np,1)];
             gridSpacing = [gridSpacing; wellSpace];
             fixedPts= [fixedPts; wellPts];
             
@@ -120,11 +120,17 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     x = pdims;
     padding = opt.padding;
     if padding
-        dx = x(1)/ceil(x(1)/resGridSize);
-        dy = x(2)/ceil(x(2)/resGridSize);
+        dx = resGridSize;
+        dy = dx;
+        vx = [-dx/2,dx/2:dx:pdims(1)-dx/2, pdims(1) + dx/2];
+        vy = [-dy/2,dy/2:dy:pdims(2)-dy/2, pdims(2) + dy/2];
+        [X, Y] = meshgrid(vx, vy);
+        
+        %dx = (2 + x(1))/ceil(x(1)/resGridSize);
+        %dy = (2 + x(2))/ceil(x(2)/resGridSize);
 
-        vx = -dx:dx:pdims(1) + dx;
-        vy = -dy:dy:pdims(2) + dy;
+        %vx = -dx:dx:pdims(1) + dx;
+        %vy = -dy:dy:pdims(2) + dy;
         [ii, jj] = meshgrid(1:numel(vx), 1:numel(vy));
         [X, Y] = meshgrid(vx,vy);
         
@@ -134,8 +140,8 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
         Y = Y(exterior);
         corners = [X(:),Y(:)];
         corners = unique(corners,'rows');
-        rectangle = [-dx,-dy; x(1)+dx, x(2)+dy];
-        fd = @(p) drectangle(p, -dx,x(1),-dy,x(2));
+        rectangle = (1+1e-6)*[-dx/2,-dy/2; x(1)+dx/2, x(2)+dy/2];
+        fd = @(p) drectangle(p, -dx/2,x(1)+dx/2,-dy/2,x(2)+dy/2);
     else
         rectangle = [0,0;x(1),x(1)];
         fd = @(p) drectangle(p, 0,x(1),0,x(2));
@@ -151,7 +157,7 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     else
         h = @(p) huniform(p)/wellGridFactor;
     end
-    [Pts,t,sort] = distmesh2d(fd, h, wellGridSize, rectangle, fixedPts);
+    [Pts,t,sorting] = distmesh2d(fd, h, wellGridSize, rectangle, fixedPts);
     nNewPts = size(Pts,1) - size(faultType,1);
     
     faultType = [faultType;zeros(nNewPts,1)];
@@ -159,10 +165,11 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     gridSpacing = [gridSpacing;zeros(nNewPts,1)];
     priIndex = [priIndex; max(priIndex) + ones(nNewPts,1)];
     
-    faultType = faultType(sort);
-    wellType = wellType(sort);
-    gridSpacing = gridSpacing(sort);
-    priIndex = priIndex(sort);
+    Pts = Pts(sorting,:);
+    faultType = faultType(sorting);
+    wellType = wellType(sorting);
+    gridSpacing = gridSpacing(sorting);
+    priIndex = priIndex(sorting);
     %gridSpacing(logical(wellType)) = gridSpacing(logical(wellType));
 
 
@@ -181,9 +188,9 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     pmid=(Pts(t(:,1),:)+Pts(t(:,2),:)+Pts(t(:,3),:))/3;    % Compute centroids
     t=t(feval(fd,pmid)<-0.001*wellGridFactor,:);  % Keep interior triangles
 
-    [Pts,t, ~, sort]=fixmesh(Pts,t);
-    faultType = faultType(sort);
-    wellType = wellType(sort);
+    [Pts,t, ~, sorting]=fixmesh(Pts,t);
+    faultType = faultType(sorting);
+    wellType = wellType(sorting);
     %gridSpacing = gridSpacing(sort);
     %priIndex = priIndex(sort);
     %%
@@ -255,7 +262,7 @@ function [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, ...
         %sumToClose = sumToClosePts(dlt);
         %sumToClose = sumToClose(find(sumToClose));
         %[~, Is] = sort(sumToClose,'descend');
-        [~, Ii ] = sort(priIndex(Ic), 'descend');
+        [~, Ii ] = sort(priIndex(Ic), feval'descend');
 
         removePoint = Ic(Ii(1));
         if wellType(removePoint)
