@@ -83,9 +83,10 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     else
         h = @(p) huniform(p)/wellGridFactor;
     end
-    
+    hfault = @(x) min((ones(size(x,1),1)*faultGridFactor/wellGridFactor), ...
+                     min(1.2*exp(pdist2(x,fixedPts(wellType,:))/wellEps),[],2));
     for i = 1:nFault + nWell
-        hfault = @(p) h(p)*faultGridSize/resGridSize/1.2;
+
        if ~isWell(i)
            fracLine = linesToGrid{i};    
            [faultPts, fracSpace,~,~,~] = createFracGridPoints(fracLine,...
