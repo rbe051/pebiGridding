@@ -76,7 +76,7 @@ N=size(p,1);                                         % Number of points N
 count=0;
 pold=inf;                                            % For first iteration
 clf,view(2),axis equal,axis off
-while 1 & count<1000
+while 1 & count<2000
   count=count+1;
   % 3. Retriangulation by the Delaunay algorithm
   if max(sqrt(sum((p-pold).^2,2))/h0)>ttol           % Any large movement?
