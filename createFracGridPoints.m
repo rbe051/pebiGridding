@@ -1,9 +1,14 @@
-function [Pts, gridSpacing, circCenter, circRadius, CCid] = createFracGridPoints(faultLine, fracDs, circleFactor) 
+function [Pts, gridSpacing, circCenter, circRadius, CCid] = createFracGridPoints(faultLine, fracDs, circleFactor, varargin) 
+    
+    opt = struct('distFunc', @huniform);
+
+    opt = merge_options(opt,varargin{:});
+    fh = opt.distFunc;
     assert(0.5<circleFactor && circleFactor < 1)
-    assert(0<fracDs)
     assert(size(faultLine,1)>1, size(faultLine,2)==2);
 
-    [circCenter, ~] = eqInterpret(faultLine, fracDs);
+    %[circCenter, ~] = eqInterpret(faultLine, fracDs, h);
+    circCenter = createFaultLine(faultLine, fh, fracDs);
     %This is equidistante if you follow the line described by fracLine,
     %but the new points may be a bit to close if the fracture has
     %sharp corners and/or you upsample the line.
@@ -52,7 +57,4 @@ function [newPoints, dt] = eqInterpret(path, dt)
     newPoints = interp1(cumDist, path, newPointsLoc);
       
 end
-
-
-
 

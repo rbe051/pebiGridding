@@ -1,6 +1,6 @@
 %% Grid with single source centered at 0.5,0.5
 close all; clear;
-addpath('../')
+addpath('../', '../mrstTweak/')
 
 xmax = 1;                              % Set grid dimentions
 ymax = 1; 

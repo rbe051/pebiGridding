@@ -122,7 +122,7 @@ while 1 & count<1000
   if max(sqrt(sum(deltat*Ftot(d<-geps,:).^2,2))/h0)<dptol, break; end
 end
 
-if count == 100
+if count == 1000
     warning('DistMesh did not converge in 1000 iterations.')
 end
 
