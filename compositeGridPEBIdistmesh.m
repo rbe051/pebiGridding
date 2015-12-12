@@ -170,7 +170,7 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     %priIndex = priIndex(sort);
     %%
     G = triangleGrid(Pts, t);
-    G = pebi(G);
+    G = pebi2(G);
     
 
     %wellType = wellType + cellsContPts(G, wellPts(removed(1:size(wellPts,1)),:));

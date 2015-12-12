@@ -31,7 +31,7 @@ addpath('../')
 
 
 %% Single fault intersected by several wells 
-close all
+close all, clear
 
 % wellLine = {[0.6,0.2;0.65,0.6],...        
 %             [0.3,0.3;0.7,0.8],...
