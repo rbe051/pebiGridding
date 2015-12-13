@@ -1,4 +1,4 @@
-function [] = plotFault(Gp)
+function [] = plotFault(Gp, varargin)
 
     faultNodes = find(Gp.faces.isFault);
     numFaultLine = length(faultNodes);
@@ -31,6 +31,6 @@ function [] = plotFault(Gp)
     hold on
     for i = 1:numel(faultsLine)
         faultCoords = Gp.nodes.coords(faultsLine{i},:);
-        plot(faultCoords(:,1),faultCoords(:,2),'r');
+        plot(faultCoords(:,1),faultCoords(:,2), varargin{:});
     end
 end
