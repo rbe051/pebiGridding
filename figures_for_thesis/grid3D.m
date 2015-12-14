@@ -1,13 +1,16 @@
 %% Grid with single source centered at 0.5,0.5
 close all; clear;
 addpath('../', '../mrstTweak/')
+mrstModule add mimetic
+mrstModule add distmesh
 
-typeOfGrid = 'coarseCart';
+typeOfGrid = 'distmesh';
+fileFormat = 'pdfNoVector';
 
 %% grid parameters
 xmax = 20;                              % Set grid dimentions
 ymax = 20; 
-gridSize = xmax*1/20;                       % Set size of grid cells
+gridSize = xmax*1/7.5;                       % Set size of grid cells
 
 faultLine = {[16, 5; 3,10.1]};
 wellLine = {[5,5], [15.0,15.0]};                % Set source center
@@ -18,22 +21,22 @@ mlqtSizes = 2.0*linspace(gridSize,gridSize*wellGridSize,mlqtMax+1)';
                                     % Set distance around wells to be
                                     % refined.
 
-wellEps = sqrt(xmax)*1/3;                         % Size around wells to be refined
+wellEps = sqrt(xmax)*1/2;                         % Size around wells to be refined
                                        % (For unstructured grid)
 %% Set simulation parameters
-T      = 60*second();
+T      = 120*second();
 dT     = T/120;
-dTplot = 10:10:T;
+dTplot = 10:20:T+10;
 
 
 %% Generate grid
 
-
+fault = faultLine{1};
 if strcmp(typeOfGrid, 'composite')
     % Create semi-structured grid
     G = compositeGridPEBI(gridSize, [xmax, ymax], 'wellLines', wellLine, ...
                          'wellGridFactor', wellGridSize, ...
-                         'mlqtMaxLevel', 2, 'mlqtLevelSteps', mlqtSizes,...
+                         'mlqtMaxLevel', 2,...% 'mlqtLevelSteps', mlqtSizes,...
                          'faultLines', faultLine, 'padding', 1);
 elseif strcmp(typeOfGrid, 'distmesh')
     %Create fully unstructured grid
@@ -55,7 +58,7 @@ elseif strcmp(typeOfGrid, 'fineCart')
 end    
 
 if strcmp(typeOfGrid,'coarseCart') || strcmp(typeOfGrid, 'fineCart')
-    % Find wells
+    % Find wells OBS!!! THIS IS VERY BUGGY!!
     w1 = wellLine{1};
     w2 = wellLine{2};
     w = [w1;w2];
@@ -65,7 +68,7 @@ if strcmp(typeOfGrid,'coarseCart') || strcmp(typeOfGrid, 'fineCart')
     G.cells.isWell(I') = true(size(I'));
     % Find faults
     n = nx*100;
-    fault = faultLine{1};
+
     fault(:,2) = fault(:,2);    
     dx = fault(2,1) - fault(1,1);
     dy = fault(2,2) - fault(1,2);
@@ -113,11 +116,11 @@ pv = sum(poreVolume(G3D, rock));
 W = verticalWell([], G3D, rock, wells(1),[], 'radius', wellGridSize/10,...
                 'type', 'rate', 'val', 0.01*pv, 'Comp_i', [1,0], 'name','$I$');
 W = verticalWell(W, G3D, rock, wells(2),[], 'radius', wellGridSize/10,...
-                'type','bhp', 'val', 300*darcy(), 'Comp_i', [0,1], 'name','$P$' ) ;
+                'type','bhp', 'val', 300*darcy(),'Comp_i', [0,1], 'name','$P$' );  
 
 
 %% Reservoir states
-state = initState(G3D, W, 0, [0.1,1]);
+state = initState(G3D, W, 0, [0.0,1]);
 
 %% Solve
 S = computeMimeticIP(G3D, rock);
@@ -132,6 +135,8 @@ axis off equal, view([-120,30]), colormap(flipud(jet))
 
 colorbar; hs = []; ha=[]; zoom(1.3);
  
+tsave = [];
+Wsave = [];
 % Start the main loop
 t  = 0;  plotNo = 1;
 while t < T,
@@ -145,6 +150,9 @@ while t < T,
 
     % Increase time and continue if we do not want to plot saturations
    t = t + dT;
+   tsave = [tsave; t];
+   Wsave = [Wsave; state.s(wells(2),:)];
+   
    if ( t + dT <= dTplot(plotNo)), continue, end
 
 %    % Calculate streamlines
@@ -156,7 +164,7 @@ while t < T,
 %   set([hf; hb],'color', 'k');
    % Plot saturation
    delete([hs, ha])
-   hs = plotCellData(G3D, state.s(:,1), find(state.s(:,1) > 0.01));
+   hs = plotCellData(G3D, state.s(:,1), find(state.s(:,1) >= 0.0));
    ha = annotation('textbox', [0.1714 0.8214 0.5000 0.1000], 'LineStyle', 'none', ...
                    'String', ['Water saturation at ', ...
                               num2str(convertTo(t,second)), ' s']);
@@ -166,12 +174,25 @@ while t < T,
    fig = gcf();
    set(findall(fig,'-property','FontSize'),'FontSize',14) 
    view(-120, 40), drawnow, caxis([0 1])
-
-   name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
-   print('-painters', '-dpdf', '-r300', name)
+   if strcmp(fileFormat, 'pdf')
+        name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
+        print('-painters', '-dpdf', '-r300', name)
+   elseif strcmp(fileFormat, 'pdfNoVector')
+        name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
+        print('-opengl', '-dpdf', '-r600', name)
+   elseif strcmp(fileFormat, 'eps')
+       name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.eps');
+       print('-painters', '-depsc', '-r300', name)
+   else
+       warning('Did not recognize file type. Does not save figure')
+       plotNo = plotNo+1;
+       continue
+   end
    
    plotNo = plotNo+1;
-
 end
+
+close all
+save(typeOfGrid)
 
 
