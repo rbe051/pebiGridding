@@ -151,7 +151,7 @@ while t < T,
     % Increase time and continue if we do not want to plot saturations
    t = t + dT;
    tsave = [tsave; t];
-   Wsave = [Wsave; state.s(wells(2),:)];
+   Wsave = [Wsave; state.s(wells(2:end),:)];
    
    if ( t + dT <= dTplot(plotNo)), continue, end
 
@@ -174,20 +174,20 @@ while t < T,
    fig = gcf();
    set(findall(fig,'-property','FontSize'),'FontSize',14) 
    view(-120, 40), drawnow, caxis([0 1])
-   if strcmp(fileFormat, 'pdf')
-        name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
-        print('-painters', '-dpdf', '-r300', name)
-   elseif strcmp(fileFormat, 'pdfNoVector')
-        name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
-        print('-opengl', '-dpdf', '-r600', name)
-   elseif strcmp(fileFormat, 'eps')
-       name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.eps');
-       print('-painters', '-depsc', '-r300', name)
-   else
-       warning('Did not recognize file type. Does not save figure')
-       plotNo = plotNo+1;
-       continue
-   end
+%    if strcmp(fileFormat, 'pdf')
+%         name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
+%         print('-painters', '-dpdf', '-r300', name)
+%    elseif strcmp(fileFormat, 'pdfNoVector')
+%         name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
+%         print('-opengl', '-dpdf', '-r600', name)
+%    elseif strcmp(fileFormat, 'eps')
+%        name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.eps');
+%        print('-painters', '-depsc', '-r300', name)
+%    else
+%        warning('Did not recognize file type. Does not save figure')
+%        plotNo = plotNo+1;
+%        continue
+%    end
    
    plotNo = plotNo+1;
 end
