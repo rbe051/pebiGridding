@@ -4,13 +4,16 @@ addpath('../', '../mrstTweak/')
 mrstModule add mimetic
 mrstModule add distmesh
 
-typeOfGrid = 'distmesh';
+typeOfGrid = 'fineCart';
 fileFormat = 'pdfNoVector';
 
 %% grid parameters
 xmax = 20;                              % Set grid dimentions
 ymax = 20; 
-gridSize = xmax*1/7.5;                       % Set size of grid cells
+%gridSize = xmax*1/7.5;     % distmesh
+%gridSize = xmax*1/8;     % composite
+%gridSize = xmax*1/11;     % coarseCart
+gridSize = xmax/20;             % fine cart
 
 faultLine = {[16, 5; 3,10.1]};
 wellLine = {[5,5], [15.0,15.0]};                % Set source center
@@ -123,9 +126,10 @@ W = verticalWell(W, G3D, rock, wells(2),[], 'radius', wellGridSize/10,...
 state = initState(G3D, W, 0, [0.0,1]);
 
 %% Solve
-S = computeMimeticIP(G3D, rock);
-state = incompMimetic(state, G3D, S, fluid, 'wells', W);
-
+%S = computeMimeticIP(G3D, rock);
+%state = incompMimetic(state, G3D, S, fluid, 'wells', W);
+trans = computeTrans(G3D,rock);
+state = incompTPFA(state, G3D, trans, fluid, 'wells', W);
 % Prepare plotting of saturations
 clf;
 hold on
@@ -144,11 +148,12 @@ while t < T,
 
    % Check for inconsistent saturations
    assert(max(state.s(:,1)) < 1+eps && min(state.s(:,1)) > -eps);
-
+   
    % Update solution of pressure equation.
-   state = incompMimetic(state, G3D, S, fluid, 'wells', W);
-
-    % Increase time and continue if we do not want to plot saturations
+   %state = incompMimetic(state, G3D, S, fluid, 'wells', W);
+   state = incompTPFA(state, G3D, trans, fluid, 'wells', W);
+   
+   % Increase time and continue if we do not want to plot saturations
    t = t + dT;
    tsave = [tsave; t];
    Wsave = [Wsave; state.s(wells(2:end),:)];
@@ -173,21 +178,21 @@ while t < T,
 
    fig = gcf();
    set(findall(fig,'-property','FontSize'),'FontSize',14) 
-   view(-120, 40), drawnow, caxis([0 1])
-%    if strcmp(fileFormat, 'pdf')
-%         name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
-%         print('-painters', '-dpdf', '-r300', name)
-%    elseif strcmp(fileFormat, 'pdfNoVector')
-%         name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
-%         print('-opengl', '-dpdf', '-r600', name)
-%    elseif strcmp(fileFormat, 'eps')
-%        name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.eps');
-%        print('-painters', '-depsc', '-r300', name)
-%    else
-%        warning('Did not recognize file type. Does not save figure')
-%        plotNo = plotNo+1;
-%        continue
-%    end
+   view(0, 90), drawnow, caxis([0 1])
+   if strcmp(fileFormat, 'pdf')
+        name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
+        print('-painters', '-dpdf', '-r300', name)
+   elseif strcmp(fileFormat, 'pdfNoVector')
+        name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.pdf');
+        print('-opengl', '-dpdf', '-r600', name)
+   elseif strcmp(fileFormat, 'eps')
+       name = strcat(typeOfGrid, num2str(convertTo(t,second)), '.eps');
+       print('-painters', '-depsc', '-r300', name)
+   else
+       warning('Did not recognize file type. Does not save figure')
+       plotNo = plotNo+1;
+       continue
+   end
    
    plotNo = plotNo+1;
 end

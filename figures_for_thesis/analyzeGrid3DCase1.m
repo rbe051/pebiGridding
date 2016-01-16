@@ -1,8 +1,8 @@
 close all; clear
 
 
-gridType = {'fineCartcase1','coarseCartcase1','distmeshcase1'};%
-legendName = { 'Fine Cartesian','Coarse Cartesian', ... %
+gridType = {'fineCart','coarseCart','composite', 'distmesh'};%
+legendName = { 'Fine Cartesian','Coarse Cartesian','Algorithm 1', ... %
               'Algorithm 2'};
 time = [];
 sat = [];
