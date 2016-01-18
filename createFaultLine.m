@@ -1,7 +1,5 @@
 function [p] = createFaultLine(line, fh, lineDist, varargin)
 
-dptol=.001; Fscale=1.2; deltat=.1; geps=.001*lineDist;
-
 % 1. Create initial points, equally distributed.
 p = eqInterpret(line, lineDist);
 if size(p,1)<3, return; end
@@ -9,8 +7,8 @@ if size(p,1)<3, return; end
 N=size(p,1);                                         % Number of points N
 
 count=0;
-while 1 & count<1000
-  count=count+1;
+while count<1000
+  count = count+1;
   % 2. Calculate distances, and wanted distances
   d = sqrt(sum((p(1:end-1,:) - p(2:end,:)).^2,2));
   pmid = (p(1:end-1,:) + p(2:end,:))/2;

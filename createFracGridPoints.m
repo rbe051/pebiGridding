@@ -1,11 +1,12 @@
-function [Pts, gridSpacing, circCenter, circRadius, CCid] = createFracGridPoints(faultLine, fracDs, circleFactor, varargin) 
+function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
+    createFracGridPoints(faultLine, fracDs, circleFactor, varargin) 
     
     opt = struct('distFunc', @huniform);
 
     opt = merge_options(opt,varargin{:});
     fh = opt.distFunc;
-    assert(0.5<circleFactor && circleFactor < 1)
-    assert(size(faultLine,1)>1, size(faultLine,2)==2);
+    assert(0.5<circleFactor && circleFactor<1)
+    assert(size(faultLine,1)>1 && size(faultLine,2)==2);
 
     %[circCenter, ~] = eqInterpret(faultLine, fracDs, h);
     circCenter = createFaultLine(faultLine, fh, fracDs);
