@@ -9,7 +9,7 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     assert(size(faultLine,1)>1 && size(faultLine,2)==2);
 
     %[circCenter, ~] = eqInterpret(faultLine, fracDs, h);
-    circCenter = createFaultLine(faultLine, fh, fracDs);
+    circCenter = interFaultLine(faultLine, fh, fracDs);
     %This is equidistante if you follow the line described by fracLine,
     %but the new points may be a bit to close if the fracture has
     %sharp corners and/or you upsample the line.
