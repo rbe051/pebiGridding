@@ -15,7 +15,7 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     %sharp corners and/or you upsample the line.
 
     numOfFracPts = size(circCenter,1)-1;
-    if numOfFracPts == 0
+    if numOfFracPts <= 0
         Pts = [];
         gridSpacing = [];
         return
