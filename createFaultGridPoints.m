@@ -18,11 +18,14 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     % circRadius        The radius of the above circles
     % CCid              Mapping from fault points to circles.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Runar Lie Berge (runarlb@stud.ntnu.no)
+    %% January 2016
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     %% Load options
-    opt = struct('distFunc', @eqSize);
-
-    opt = merge_options(opt,varargin{:});
+    fh  = @(x) fracDs*constFunc(x);
+    opt = struct('distFunc', fh);
+    opt = merge_options(opt, varargin{:});
     fh = opt.distFunc;
     assert(0.5<circleFactor && circleFactor<1)
     assert(size(faultLine,1)>1 && size(faultLine,2)==2);
@@ -74,7 +77,8 @@ function [p] = interFaultLine(line, fh, lineDist, varargin)
     %               interpolation
     %   lineDist    Scalar which set the distance between interpolation
     %               points (Relative to fh = 1)
-    %   varargin    Arguments passed to fh
+    % varargin:    
+    %               Arguments passed to fh
 
     % Parameters
     TOL = 1e-4; maxIt = 10000;
@@ -88,16 +92,15 @@ function [p] = interFaultLine(line, fh, lineDist, varargin)
       % Calculate distances, and wanted distances
       d = distAlLine(line, p);
       pmid = (p(1:end-1,:) + p(2:end,:))/2;
-      dw = lineDist*fh(pmid,varargin{:}); % Multiply by lineDist since fh is 
-                                          % the relative size fuction
+      dw = fh(pmid,varargin{:});
 
       % Possible insert or remove points
-      if sum(d - dw) > min(dw)
-          id = find(min(d));
+      if sum(d - dw)>min(dw)
+          [~, id] = max(d - dw);
           p = [p(1:id,:); pmid(id,:); p(id+1:end,:)];
           continue
       elseif sum(d - dw) < - max(dw)
-          id = find(min(d));
+          [~, id] = min(d - dw);
           if id == 1, id = 2; end
           p = p([1:id-1,id+1:end],:);
           continue
@@ -110,9 +113,9 @@ function [p] = interFaultLine(line, fh, lineDist, varargin)
       moveNode = Fn*0.2;                 % Movement of each internal node.
       d = d + [moveNode(1); moveNode(2:end) - moveNode(1:end-1); -moveNode(end)];
       p = interpLine(line,d);            % Update node positions
-        
+
       % Terminate if Nodes have moved (relative) less  than TOL
-      if all(moveNode<TOL*lineDist), return; end
+      if all(abs(moveNode)<TOL*lineDist), return; end
     end
 
     if count == maxIt
@@ -130,7 +133,6 @@ function [d] = distAlLine(line, p)
     %   p       Interpolation points
     % Returns:
     %   d       distance between consecutive points of p, along line
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     TOL = 50*eps;
     
@@ -163,16 +165,6 @@ function [d] = eucDist(a, b)
     d = sqrt(sum((a - b).^2,2));
 end
 
-function [newPoints, dt] = eqInterpret(path, dt)
-    linesDist = sqrt(sum(diff(path,[],1).^2,2));
-    linesDist = [0; linesDist]; % add the starting point
-    cumDist = cumsum(linesDist);
-    dt = cumDist(end)/ceil(cumDist(end)/dt);
-    newPointsLoc = 0:dt:cumDist(end);
-        
-    newPoints = interp1(cumDist, path, newPointsLoc);    
-end
-
 
 function [newPoints] = interpLine(path, dt)
     distS = sqrt(sum(diff(path,[],1).^2,2));
@@ -186,8 +178,4 @@ function [newPoints] = interpLine(path, dt)
     newPoints = [newX,newY];
 end
 
-
-function h = eqSize(p,varargin)
-h=ones(size(p,1),1);
-end
 

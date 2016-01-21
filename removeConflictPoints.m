@@ -1,31 +1,62 @@
-function [Pts, removed] = removeConflictPoints(Pts, gridSpacing, priIndex)
-    Ic = 1:size(Pts, 1);
-    ptsToClose = Pts;
-    removed = zeros(size(Pts, 1), 1);
+function [Pts, wellType, removed] = removeConflictPoints(Pts, gridSpacing, ...
+                                                         priIndex, wellType)
+    % Remove conflict points
+    % Arguments:
+    %   Pts             2*n array of points
+    %   gridSpacing     array of length n containing the minimum allowed
+    %                   distance to other points
+    %   priIndex        array of length n containing the priority of each
+    %                   point
+    %   wellType        Logical array of length n that is true for well
+    %                   points
+    %   
+    % Return:
+    %   Pts             array of length <=n of points that were not removed
+    %   wellType        Logical array that is true for well points
+    %   removed         logical array of length n that is true for points
+    %                   that were removed
+    %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Runar Lie Berge (runarlb@stud.ntnu.no)
+    %% January 2016
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                                    
+    gridSpacing = gridSpacing*(1-1e-10); % To avoid floating point errors
     
-    distance = pdist(ptsToClose)';
-    dlt = distLessThan(distance, gridSpacing(Ic));
-    Ic = findToClose(dlt);
+    Ic = 1:size(Pts, 1);                % Sorting map
+    ptsToClose = Pts;                   % Mark all points as potential 
+    removed = false(size(Pts, 1), 1);   % conflict points
     
+    distance = pdist(ptsToClose)';      % Calculate distance, all to all
+    dlt = distLessThan(distance, gridSpacing(Ic)); % find conflict points
+    Ic = findToClose(dlt);                         % Map back to array
     while length(Ic)>1
-        sumToClose = sumToClosePts(dlt);
-        sumToClose = sumToClose(find(sumToClose));
-        [~, Is] = sort(sumToClose,'descend');
-        [~, Ii ] = sort(priIndex(Ic(Is)), 'ascend');
+        [~, Ii ] = sort(priIndex(Ic), 'descend');  % Sort after priority
 
-        removePoint = Ic(Is(Ii(1)));
-        removed(removePoint) = 1;        
-        Ic = Ic(Ic~=removePoint);
+        removePoint = Ic(Ii(1));        % Remove least important point
+        if wellType(removePoint)        % If it is a well point, mark the
+            n = size(Ic,1);             % corresponding cell as a well cell
+            if Ii(1)>n/2;
+                wellType(Ic(ceil(mod(Ii(1),(n+1)/2)))) = true;
+            else
+                wellType(Ic(Ii(1)+n/2)) = true;
+            end
+        end
+        removed(removePoint) = true;    
+        Ic = Ic(Ic~=removePoint);       % Update sorting maps
+        Ic = unique(Ic);
         ptsToClose = Pts(Ic,:);
         
-        if ptsToClose ==1
+        if size(ptsToClose,1) ==1
             continue
         end
-        distance = pdist(ptsToClose)';
-        dlt = distLessThan(distance, gridSpacing(Ic));
+        distance = pdist(ptsToClose)';  % Calculate distance of potential 
+        dlt = distLessThan(distance, gridSpacing(Ic)); % conflict points
         Ic = Ic(findToClose(dlt));
+        
     end
-    Pts = Pts(~removed,:);
+    Pts      = Pts(~removed,:);         % Update return arrays.
+    wellType = wellType(~removed, :);
 end
 
 
@@ -35,31 +66,23 @@ function [arr] = distLessThan(distance, b)
     arr = distance < max(b(i), b(j));
 end
 
-function [pts] = sumToClosePts(arr)
-    n = length(arr);
-    m = ceil(sqrt(2*n)); % = 0.5 + 0.5sqrt(1+8n) for n > 0
-    pts = zeros(m,1);
-    for i = 1:m
-        k1 = matToArr(i+1:m, i, m);
-        k2 = matToArr(i,1:i-1, m);
-        pts(i) = sum(arr(k1)) + sum(arr(k2)); 
-    end
-end
 
-function indexes = findToClose(arr)
+function [indexes] = findToClose(arr)
     n = length(arr);
     k = find(arr);
     [i, j] = arrToMat(k, n);
-    indexes = unique([i ; j]);
+    indexes = [i;j];
 end
 
-function [k] = matToArr(i,j, m)
-    assert(all(abs(j)) && all(abs(i-j)) && all(abs(1+m-i)));
-    k = 1 + (j-1)*m - (j-1).*j/2 + i-j - 1;
-end
+
 
 function [i, j] = arrToMat(k, n)
     m = ceil(sqrt(2*n));
     j = ceil((2*m-1)/2 - 0.5*sqrt((2*m-1)^2 - 8*k));
     i = k + j - (j-1).*(m-j/2);
 end
+
+% function [k] = matToArr(i,j, m)
+%     assert(all(abs(j)) && all(abs(i-j)) && all(abs(1+m-i)));
+%     k = 1 + (j-1)*m - (j-1).*j/2 + i-j - 1;
+% end

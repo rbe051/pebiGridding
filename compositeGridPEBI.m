@@ -1,11 +1,11 @@
 function G = compositeGridPEBI(resGridSize, pdims, varargin)
     % Creates a PEBI grid adapting to faults and well traces.
-    
+    %
     % Argumets:
     %   resGridSize         Size of the reservoir grid cells
     %   pdims               [xmax, ymax], array with the size of the square
     %                       to be gridded.
-    
+    %
     % Varargin:
     %   wellLines           A struct of arrays. Each array is the 
     %                       coordinates of a well trace. If the
@@ -16,7 +16,7 @@ function G = compositeGridPEBI(resGridSize, pdims, varargin)
     %   mlqtMaxLevel        Number of refinement steps to be used towards
     %                       wells
     %   mlqtLevelSteps      Array of size mlqtMaxLevel which specify the
-    %                       effective radius of each refinement level
+    %                       radius of each refinement level
     %   faultLines          A struct of arrays. Each array is the
     %                       coordinates of a fault trace. 
     %   faultGridFactor     The relative grid size of the fault grid cells
@@ -30,14 +30,14 @@ function G = compositeGridPEBI(resGridSize, pdims, varargin)
     %                       the last fault.
     %   fullFaultEdge       Set to true if you wish to guarantee the faults
     %                       to be traced by edges in the PEBI grid
-    
+    %
     % Returns:
     %   G                   A mrst grid structure. 
     
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Written by Runar Lie Berge (runarlb@stud.ntnu.no)
-%% January 2016
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Written by Runar Lie Berge (runarlb@stud.ntnu.no)
+    %% January 2016
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
 
     %% Set options
@@ -123,10 +123,10 @@ function G = compositeGridPEBI(resGridSize, pdims, varargin)
     for i = 1:nFault + nWell % create fault points
         if ~isWell(i)
             fracLine = linesToGrid{i};    
-            [faultPts, fracSpace, CC, CR, CCid] =                      ...
-                                    createFracGridPoints(fracLine,     ... 
-                                                         faultGridSize,...
-                                                         circleFactor);
+            [faultPts, fracSpace, CC, CR, CCid] =                       ...
+                                    createFaultGridPoints(fracLine,     ... 
+                                                          faultGridSize,...
+                                                          circleFactor);
             nl = size(faultPts,1)/2;
             if nl==0 % No fault points created
                 continue
@@ -170,25 +170,24 @@ function G = compositeGridPEBI(resGridSize, pdims, varargin)
         for i = 1:size(resPtsInit,1)
             res = [res; mlqt(resPtsInit(i,:), Pts(wellType,:), resGridSize, varArg{:})];
         end
-        resPts = vec2mat([res{:,1}],2);
+        resPts      = vec2mat([res{:,1}],2);
         resGridSize = 0.5*[res{:,2}]';
     else
-        resPts = resPtsInit;
+        resPts      = resPtsInit;
         resGridSize = repmat(0.5*min(dx,dy),size(resPts,1),1);
     end
     
-    faultType = [faultType; zeros(size(resPts,1),1)];
-    wellType = [wellType; false(size(resPts,1),1)];
-    priIndex = [priIndex; max(priIndex) + ones(size(resPts, 1), 1)];
+    faultType   = [faultType; zeros(size(resPts,1),1)];
+    wellType    = [wellType; false(size(resPts,1),1)];
+    priIndex    = [priIndex; max(priIndex) + ones(size(resPts, 1), 1)];
     gridSpacing = [gridSpacing; resGridSize];
     
     Pts = [Pts;resPts];
     
     %% Remove Conflic Points
-    [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, priIndex, wellType);
+    [Pts, wellType, removed] = removeConflictPoints(Pts, gridSpacing, priIndex, wellType);
         
     faultType = faultType(~removed);
-    wellType = wellType(~removed);
     
     if opt.fullFaultEdge    
         [Pts, removed, ~, ~] = enforceSufficientFaultCondition(Pts, ...
@@ -220,108 +219,7 @@ function G = compositeGridPEBI(resGridSize, pdims, varargin)
     
     %Label well cells
     G.cells.isWell = logical(wellType);
-   
 
-%% Plotting for debugging.
-    figure()
-    hold on
-    faultType = faultType(2:end);
-    plot(Pts(logical(faultType),1),Pts(logical(faultType),2),'ro')
-    plot(Pts(~logical(faultType),1),Pts(~logical(faultType),2),'bo')
-       %       hold on
-    plot(Pts(:,1),Pts(:,2),'r.')
-%       plot(fracPts(:,1), fracPts(:,2),'r.')
-    plotGrid(G,'facecolor','none')
-    
-    n = 50;
-    theta = (linspace(0,2*pi,n))';
-    for i = 1:size(Pts,1)
-        if true %faultType(i)
-            x = Pts(i,1) + gridSpacing(i)*cos(theta);
-            y = Pts(i,2) + gridSpacing(i)*sin(theta);
-            plot(x,y);
-        end
-    end
-end
-
-
-function [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, ...
-                                                         priIndex, wellType)
-    gridSpacing = gridSpacing*(1-1e-4); % To avoid floating point errors
-    
-    Ic = 1:size(Pts, 1);
-    ptsToClose = Pts;
-    removed = false(size(Pts, 1), 1);
-    
-    distance = pdist(ptsToClose)';
-    dlt = distLessThan(distance, gridSpacing(Ic));
-    Ic = findToClose(dlt);
-    while length(Ic)>1
-        %sumToClose = sumToClosePts(dlt);
-        %sumToClose = sumToClose(find(sumToClose));
-        %[~, Is] = sort(sumToClose,'descend');
-        [~, Ii ] = sort(priIndex(Ic), 'descend');
-
-        removePoint = Ic(Ii(1));
-        if wellType(removePoint)
-            n = size(Ic,1);
-            if Ii(1)>n/2;
-                wellType(Ic(ceil(mod(Ii(1),(n+1)/2)))) = true;
-            else
-                wellType(Ic(Ii(1)+n/2)) = true;
-            end
-        end
-        removed(removePoint) = true;    
-        Ic = Ic(Ic~=removePoint);
-        Ic = unique(Ic);
-        ptsToClose = Pts(Ic,:);
-        
-        if size(ptsToClose,1) ==1
-            continue
-        end
-        distance = pdist(ptsToClose)';
-        dlt = distLessThan(distance, gridSpacing(Ic));
-        Ic = Ic(findToClose(dlt));
-        
-    end
-    Pts = Pts(~removed,:);
-end
-
-
-function [arr] = distLessThan(distance, b)
-    n = length(distance);
-    [i,j] = arrToMat(1:n, n);
-    arr = distance < max(b(i), b(j));
-end
-
-
-function [pts] = sumToClosePts(arr)
-    n = length(arr);
-    m = ceil(sqrt(2*n)); % = 0.5 + 0.5sqrt(1+8n) for n > 0
-    pts = zeros(m,1);
-    for i = 1:m
-        k1 = matToArr(i+1:m, i, m);
-        k2 = matToArr(i,1:i-1, m);
-        pts(i) = sum(arr(k1)) + sum(arr(k2)); 
-    end
-end
-
-function [indexes] = findToClose(arr)
-    n = length(arr);
-    k = find(arr);
-    [i, j] = arrToMat(k, n);
-    indexes = [i;j];
-end
-
-function [k] = matToArr(i,j, m)
-    assert(all(abs(j)) && all(abs(i-j)) && all(abs(1+m-i)));
-    k = 1 + (j-1)*m - (j-1).*j/2 + i-j - 1;
-end
-
-function [i, j] = arrToMat(k, n)
-    m = ceil(sqrt(2*n));
-    j = ceil((2*m-1)/2 - 0.5*sqrt((2*m-1)^2 - 8*k));
-    i = k + j - (j-1).*(m-j/2);
 end
 
 
@@ -348,7 +246,7 @@ function [Pts, removed, CC, CR] = ...
         toRemove2 = toRemove1;
         circleToRemove1 = faultToCenter(faultIndex(isRemovedFaults));
         circleToRemove1 = unique(circleToRemove1);
-        % Remove circle if a fault ptn on both sides is removed
+        % Remove circle if a fault pnt on both sides is removed
         circleToRemove2 = circleToRemove1 + 1;
         circleToRemove1 = [circleToRemove1; Cto];
         circleToRemove2 = [Cfrom; circleToRemove2];
@@ -360,26 +258,6 @@ function [Pts, removed, CC, CR] = ...
     remove = logical(remove);
     CC = CC(~remove,:);
     CR = CR(~remove);    
-        
-%     figure()
-%     hold on
-%     faultType = faultType(2:end);
-%     plot(Pts(logical(faultType),1),Pts(logical(faultType),2),'.')
-%        %       hold on
-%     plot(Pts(:,1),Pts(:,2),'r.')
-% %       plot(fracPts(:,1), fracPts(:,2),'r.')
-%     plotGrid(G,'facecolor','none')
-%     
-%     n = 50;
-%     theta = (linspace(0,2*pi,n))';
-%     for i = 1:size(Pts,1)
-%         if true %faultType(i)
-%             x = Pts(i,1) + gridSpacing(i)*cos(theta);
-%             y = Pts(i,2) + gridSpacing(i)*sin(theta);
-%             plot(x,y);
-%         end
-%     end
-
 
     nc = size(CC,1);
     np = size(Pts,1);

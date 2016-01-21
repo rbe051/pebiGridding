@@ -1,40 +1,75 @@
-function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
-        
-    opt = struct('wellLines', {{}}, ...
-                 'wellGridFactor', -1, ...
-                 'wellRefDist', -1,...
-                 'faultGridFactor', -1, ...
-                 'faultLines', {{}}, ...
-                 'circleFactor', 0.6, ...
-                 'priOrder', [], ...
-                 'padding', 0);  
-             
-    opt = merge_options(opt, varargin{:});
+function G = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
+    % Creates a PEBI grid adapting to faults and well traces.
+    %
+    % Argumets:
+    %   resGridSize         Size of the reservoir grid cells
+    %   pdims               [xmax, ymax], array with the size of the square
+    %                       to be gridded.
+    %
+    % Varargin:
+    %   wellLines           A struct of arrays. Each array is the 
+    %                       coordinates of a well trace. If an
+    %                       array only contains one coordinate, the well is
+    %                       treated as a point well.
+    %   wellGridFactor      The relative grid size of the well grid cells
+    %                       compared to reservoir grid cells
+    %   wellRefinement      Logical scalar set to true if refinement
+    %                       towards wells is wanted
+    %   epsilon             Scale for grid refinement.
+    %   faultLines          A struct of arrays. Each array is the
+    %                       coordinates of a fault trace. 
+    %   faultGridFactor     The relative grid size of the fault grid cells
+    %                       compared to the reservoir grid cells
+    %   circleFactor        The relative radius of the circles used to
+    %                       create the fault cells.
+    %   priOrder            Array of length = number of wells + number of 
+    %                       faults. Sets the priority of well and fault 
+    %                       traces. First element set the priority of the
+    %                       first well, last element set the priority of
+    %                       the last fault.
+    %   fullFaultEdge       Set to true if you wish to guarantee the faults
+    %                       to be traced by edges in the PEBI grid
+    %
+    % Returns:
+    %   G                   A mrst grid structure. 
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Runar Lie Berge (runarlb@stud.ntnu.no)
+%% January 2016
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   
 
     %% Set options
+    opt = struct('wellLines',       {{}}, ...
+                 'wellGridFactor',  0.5, ...
+                 'wellRefinement',  false, ...
+                 'epsilon',         -1,...
+                 'faultLines',      {{}}, ...
+                 'faultGridFactor', 0.5, ...
+                 'circleFactor',    0.6, ...
+                 'priOrder',        []);  
+             
+    opt          = merge_options(opt, varargin{:});
+    circleFactor = opt.circleFactor;
+	wellRef      =  opt.wellRefinement;
+    wellEps      = opt.epsilon; % For grid refinement.
     % Set grid sizes
-    wellGridFactor = opt.wellGridFactor;
-    if wellGridFactor < 0
-        wellGridFactor = 0.5;
-    end
+    wellGridFactor  = opt.wellGridFactor;
     faultGridFactor = opt.faultGridFactor;
-    if faultGridFactor < 0
-        faultGridFactor = 0.5;
-    end
-    wellGridSize = resGridSize*wellGridFactor;
-    faultGridSize = resGridSize*faultGridFactor;
-    wellEps = opt.wellRefDist; % For grid refinement.
+    wellGridSize    = resGridSize*wellGridFactor;
+    faultGridSize   = resGridSize*faultGridFactor;
+
     if wellEps<0
         wellEps = 0.25/max(pdims);
     end
     
     % Load faults and Wells
-    faultLines = opt.faultLines;
-    wellLines = opt.wellLines;
-    nFault = numel(faultLines);
-    nWell = numel(wellLines);
+    faultLines  = opt.faultLines;
+    wellLines   = opt.wellLines;
+    nFault      = numel(faultLines);
+    nWell       = numel(wellLines);
     linesToGrid = [wellLines, faultLines{:}];
-    isWell = [true(nWell,1); false(nFault,1)];
+    isWell      = [true(nWell,1); false(nFault,1)];
     
     % Set priority index
     priOrder = opt.priOrder;
@@ -45,316 +80,144 @@ function varargout = compositeGridPEBIdistmesh(resGridSize, pdims, varargin)
     end
     % Sort faults and wells in priority
     linesToGrid = linesToGrid(priOrder);
-    isWell = isWell(priOrder);
+    isWell      = isWell(priOrder);
     
-    
+    %% Test input
+    assert(resGridSize>0);
+    assert(numel(pdims)==2);
+    assert(all(pdims>0 ));
+    assert(wellGridSize>0);
+    assert(faultGridSize>0);
+    assert(0.5<circleFactor && circleFactor<1);
     
     %% Initialize variables.
-    faultType = [];
-    wellType = logical([]);
-    priIndex = [];
+    faultType   = [];
+    wellType    = logical([]);
+    priIndex    = [];
     gridSpacing = [];
-
     fixedPts = [];
-    %faultCenter = [];
-    %faultRadius = [];
-    %faultToCenter = zeros(size(wellPts,1),1);
-    %faultPos = size(wellPts,1)+1;
 
-
-    %% Place fault and well points
+    %% Place well points
     lastFaultType = 0;
     %lastCCid = 0;
     for i = 1:nFault+nWell % From low priority to high
         if isWell(i)
             wellLine = linesToGrid{i};
             [wellPts,wellSpace] = createWellGridPoints(wellLine, wellGridSize);
-            np = size(wellPts,1);
-            faultType = [faultType; zeros(np,1)];
-            wellType = [wellType; true(np,1)];
-            priIndex =[priIndex; i*ones(np,1)];
+            
+            np          = size(wellPts,1);
+            faultType   = [faultType; zeros(np,1)];
+            wellType    = [wellType; true(np,1)];
+            priIndex    = [priIndex; i*ones(np,1)];
             gridSpacing = [gridSpacing; wellSpace];
-            fixedPts= [fixedPts; wellPts];
+            fixedPts    = [fixedPts; wellPts];
         end
     end
     %% create distance function
-    if nWell>0
-        h = @(x) min((ones(size(x,1),1)/wellGridFactor), ...
-                     min(1.2*exp(pdist2(x,fixedPts(wellType,:))/wellEps),[],2));
-	hfault = @(x) min((ones(size(x,1),1)*faultGridFactor/wellGridFactor), ...
+    if wellRef && nWell>0
+        hres   = @(x) min((ones(size(x,1),1)/wellGridFactor), ...
                       min(1.2*exp(pdist2(x,fixedPts(wellType,:))/wellEps),[],2));
+        hfault = @(x) wellGridSize*faultGridFactor*hres(x);
     else
-        h = @(p) huniform(p)/wellGridFactor;
-	hfault = @(p) huniform(p)*faultGridFactor/wellGridFactor;
+    hres   = @(p) constFunc(p)/wellGridFactor;
+	hfault = @(p) constFunc(p)*faultGridSize;
     end
+    
+    %% Place fault points
     for i = 1:nFault + nWell
        if ~isWell(i)
            fracLine = linesToGrid{i};    
-           [faultPts, fracSpace,~,~,~] = createFracGridPoints(fracLine,...
-                                                              wellGridSize,...
-                                                              opt.circleFactor,...
+           [faultPts, fracSpace,~,~,~] = createFaultGridPoints(fracLine,...
+                                                               faultGridSize,...
+                                                               circleFactor,...
                                                               'distFunc', hfault);
            nl = size(faultPts,1)/2;
            if nl==0
                continue
            end
 
-           newFaultType = lastFaultType+1:lastFaultType+nl;
+           newFaultType  = lastFaultType+1:lastFaultType+nl;
            lastFaultType = newFaultType(end);
-           faultType = [faultType; newFaultType';newFaultType'];        % 2*i-1rldecode([2*i-1; 2*i], [nl; nl])];
-           wellType  = [wellType; false(2*nl,1)];
-           priIndex = [priIndex; i*ones(2*nl,1)]; 
-           gridSpacing = [gridSpacing;fracSpace];
-           fixedPts = [fixedPts;faultPts];
-           %faultCenter = [faultCenter; CC];
-           %faultRadius = [faultRadius; CR];
-           %faultToCenter = [faultToCenter;lastCCid+CCid]; 
-           %lastCCid = faultToCenter(end)+1;
-           %faultPos = [faultPos; faultPos(end)+size(newFracPts,1)]; 
+           faultType     = [faultType; newFaultType';newFaultType'];
+           wellType      = [wellType; false(2*nl,1)];
+           priIndex      = [priIndex; i*ones(2*nl,1)]; 
+           gridSpacing   = [gridSpacing;fracSpace];
+           fixedPts      = [fixedPts;faultPts];
        end
     end
     
 
     %% Remove fault and well conflic points
     if size(fixedPts,1)>1
-        [fixedPts,removed,wellType]=removeConflictPoints(fixedPts, ...
-                                                         gridSpacing,...
-                                                         priIndex, ...
-                                                         wellType);        
-        wellType = wellType(~removed);
-        faultType = faultType(~removed);
+        [fixedPts, wellType, removed]=removeConflictPoints(fixedPts, ...
+                                                           gridSpacing,...
+                                                           priIndex, ...
+                                                           wellType);        
+        faultType   = faultType(~removed);
         gridSpacing = gridSpacing(~removed);
-        priIndex = priIndex(~removed);
+        priIndex    = priIndex(~removed);
     end
     
 
-    %%
-    %% Create grid
+
+    %% Create Reservoir grid points
     % set dist function
     x = pdims;
-    padding = opt.padding;
-    if padding
-        dx = resGridSize;
-        dy = dx;
-        vx = [-dx/2,dx/2:dx:pdims(1)-dx/2, pdims(1) + dx/2];
-        vy = [-dy/2,dy/2:dy:pdims(2)-dy/2, pdims(2) + dy/2];
-        [X, Y] = meshgrid(vx, vy);
-        
-        %dx = (2 + x(1))/ceil(x(1)/resGridSize);
-        %dy = (2 + x(2))/ceil(x(2)/resGridSize);
+    rectangle = [0,0; x(1),x(1)];   
+    fd = @(p) drectangle(p, 0, x(1), 0, x(2));
+    % Set fixed points
+    corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
 
-        %vx = -dx:dx:pdims(1) + dx;
-        %vy = -dy:dy:pdims(2) + dy;
-        [ii, jj] = meshgrid(1:numel(vx), 1:numel(vy));
-        [X, Y] = meshgrid(vx,vy);
-        
-        exterior = (ii <= 1 | ii> numel(vx) - 1 | ...
-                    jj <= 1 | jj> numel(vy) - 1);
-        X = X(exterior);
-        Y = Y(exterior);
-        corners = [X(:),Y(:)];
-        corners = unique(corners,'rows');
-        rectangle = (1+1e-6)*[-dx/2,-dy/2; x(1)+dx/2, x(2)+dy/2];
-        fd = @(p) drectangle(p, -dx/2,x(1)+dx/2,-dy/2,x(2)+dy/2);
-    else
-        rectangle = [0,0;x(1),x(1)];
-        fd = @(p) drectangle(p, 0,x(1),0,x(2));
-        % Set fixed points
-        corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
-    end
 
     fixedPts = [fixedPts; corners];
-    [Pts,t,sorting] = distmesh2d(fd, h, wellGridSize, rectangle, fixedPts);
+    [Pts,~,sorting] = distmesh2d(fd, hres, wellGridSize, rectangle, fixedPts);
 
-    nNewPts = size(Pts,1) - size(faultType,1);
-    
-    faultType = [faultType;zeros(nNewPts,1)];
-    wellType = [wellType;zeros(nNewPts,1)];
+    nNewPts     = size(Pts,1) - size(faultType,1);
+    faultType   = [faultType;zeros(nNewPts,1)];
+    wellType    = [wellType;zeros(nNewPts,1)];
     gridSpacing = [gridSpacing;zeros(nNewPts,1)];
-    priIndex = [priIndex; max(priIndex) + ones(nNewPts,1)];
+    priIndex    = [priIndex; max(priIndex) + ones(nNewPts,1)];
     
-    Pts = Pts(sorting,:);
-    faultType = faultType(sorting);
-    wellType = wellType(sorting);
+    Pts         = Pts(sorting,:);
+    faultType   = faultType(sorting);
+    wellType    = wellType(sorting);
     gridSpacing = gridSpacing(sorting);
-    priIndex = priIndex(sorting);
-    %gridSpacing(logical(wellType)) = gridSpacing(logical(wellType));
-
+    priIndex    = priIndex(sorting);
+    
     %% Remove new conflict  points
-    [Pts,removed,wellType]=removeConflictPoints(Pts, ...
-                                                gridSpacing,...
-                                                priIndex, ...
-                                                wellType);        
-    wellType = wellType(~removed);
+    [Pts, wellType, removed,]=removeConflictPoints(Pts, ...
+                                                   gridSpacing,...
+                                                   priIndex, ...
+                                                   wellType);        
     faultType = faultType(~removed);
-    %gridSpacing = gridSpacing(~removed); % Should be added of used later
+    %gridSpacing = gridSpacing(~removed); % Should be added if used later
     %priIndex = priIndex(~removed);
-    t = delaunay(Pts);
-    pmid=(Pts(t(:,1),:)+Pts(t(:,2),:)+Pts(t(:,3),:))/3;    % Compute centroids
-    t=t(feval(fd,pmid)<-0.001*wellGridFactor,:);  % Keep interior triangles
+    
+    %% Create grid
+    t    = delaunay(Pts);
+    % Fix boundary
+    pmid = (Pts(t(:,1),:)+Pts(t(:,2),:)+Pts(t(:,3),:))/3;% Compute centroids
+    t    = t(feval(fd,pmid)<-0.001*wellGridFactor,:);    % Keep interior triangles
 
-    [Pts,t, ~, sorting]=fixmesh(Pts,t);
-    faultType = faultType(sorting);
-    wellType = wellType(sorting);
-    %gridSpacing = gridSpacing(sort);
+    [Pts,t, ~, sorting] = fixmesh(Pts,t);
+    faultType           = faultType(sorting);
+    wellType            = wellType(sorting);
+    %gridSpacing = gridSpacing(sort); % Should be added if used later
     %priIndex = priIndex(sort);
-    %%
+    
     G = triangleGrid(Pts, t);
     G = pebi(G);
     G = computeGeometry(G);
     
-    %wellType = wellType + cellsContPts(G, wellPts(removed(1:size(wellPts,1)),:));
     %label fault faces.
-    N = G.faces.neighbors + 1;
-    faultType = [0; faultType];
-    ft1 = faultType(N(:,1));
-    ft2 = faultType(N(:,2));
+    N               = G.faces.neighbors + 1;
+    faultType       = [0; faultType];
+    ft1             = faultType(N(:,1));
+    ft2             = faultType(N(:,2));
     G.faces.isFault = logical(ft1==ft2 & ft1 > 0 & ft2 > 0);
     
     %Label well cells
-    G.cells.isWell= logical(wellType);
-
+    G.cells.isWell= logical(wellType);    
     
-    %% Remove padding.
-    if padding
-        centroids = G.cells.centroids;
-        remPad  = centroids(:,1)< 0 | centroids(:,1) > pdims(1) ...
-                | centroids(:,2)< 0 | centroids(:,2) > pdims(2);
-        G = removeCells(G, remPad);
-    end
-    varargout{1} = G;
-    if nargout > 1
-        varargout{2} = indicator;
-    end
-    
-    
-    %% Plotting for debugging.
-%     figure()
-%      hold on
-% %     plot(Pts(logical(wellType),1),Pts(logical(wellType),2),'.')
-% %        figure()
-% %     hold on
-% %        %       hold on
-% %       plot(Pts(:,1),Pts(:,2),'r.')
-%     plot(fixedPts(:,1), fixedPts(:,2),'r.')
-%     plotGrid(G,'facecolor','none')
-%     
-%     n = 50;
-%     theta = (linspace(0,2*pi,n))';
-%     for i = 1:size(fixedPts,1)-size(corners,1)
-%         x =  fixedPts(i,1) + gridSpacing(i)*cos(theta);
-%         y = fixedPts(i,2) + gridSpacing(i)*sin(theta);
-%         plot(x,y);     
-%     end
 end
 
-
-
-function [Pts, removed, wellType] = removeConflictPoints(Pts, gridSpacing, ...
-                                                         priIndex, wellType)
-    gridSpacing = gridSpacing*(1-1e-8); % To avoid floating point errors
-    
-    Ic = 1:size(Pts, 1);
-    ptsToClose = Pts;
-    removed = false(size(Pts, 1), 1);
-    
-    distance = pdist(ptsToClose)';
-    dlt = distLessThan(distance, gridSpacing(Ic));
-    Ic = findToClose(dlt);
-    while length(Ic)>1
-        %sumToClose = sumToClosePts(dlt);
-        %sumToClose = sumToClose(find(sumToClose));
-        %[~, Is] = sort(sumToClose,'descend');
-        [~, Ii ] = sort(priIndex(Ic), 'descend');
-
-        removePoint = Ic(Ii(1));
-        if wellType(removePoint)
-            n = size(Ic,1);
-            if Ii(1)>n/2;
-                wellType(Ic(ceil(mod(Ii(1),(n+1)/2)))) = true;
-            else
-                wellType(Ic(Ii(1)+n/2)) = true;
-            end
-        end
-        removed(removePoint) = true;    
-        Ic = Ic(Ic~=removePoint);
-        Ic = unique(Ic);
-        ptsToClose = Pts(Ic,:);
-        
-        if size(ptsToClose,1) ==1
-            continue
-        end
-        distance = pdist(ptsToClose)';
-        dlt = distLessThan(distance, gridSpacing(Ic));
-        Ic = Ic(findToClose(dlt));
-        
-    end
-    Pts = Pts(~removed,:);
-end
-
-
-function [arr] = distLessThan(distance, b)
-    n = length(distance);
-    [i,j] = arrToMat(1:n, n);
-    arr = distance < max(b(i), b(j));
-end
-
-
-function [pts] = sumToClosePts(arr)
-    n = length(arr);
-    m = ceil(sqrt(2*n)); % = 0.5 + 0.5sqrt(1+8n) for n > 0
-    pts = zeros(m,1);
-    for i = 1:m
-        k1 = matToArr(i+1:m, i, m);
-        k2 = matToArr(i,1:i-1, m);
-        pts(i) = sum(arr(k1)) + sum(arr(k2)); 
-    end
-end
-
-function [indexes] = findToClose(arr)
-    n = length(arr);
-    k = find(arr);
-    [i, j] = arrToMat(k, n);
-    indexes = [i;j];
-end
-
-function [k] = matToArr(i,j, m)
-    assert(all(abs(j)) && all(abs(i-j)) && all(abs(1+m-i)));
-    k = 1 + (j-1)*m - (j-1).*j/2 + i-j - 1;
-end
-
-function [i, j] = arrToMat(k, n)
-    m = ceil(sqrt(2*n));
-    j = ceil((2*m-1)/2 - 0.5*sqrt((2*m-1)^2 - 8*k));
-    i = k + j - (j-1).*(m-j/2);
-end
-
-
-function [Pts, isNew, removed] = replacePointsByHull(Pts, P_target)
-    Tri = delaunayTriangulation(P_target);
-    keep = isnan(Tri.pointLocation(Pts));
-    
-    Pts = [Pts(keep, :); P_target];
-    isNew = true(size(Pts, 1), 1);
-    isNew(1:sum(keep)) = false;
-    
-    removed = ~keep;
-end
-
-
-
-
-function [Pts, removed] = enforceSufficientFaultCondition(Pts, isFault, CC, CR);
-assert(size(CC,1)==size(CR,1));
-assert(size(isFault,1)==size(Pts,1));
-nc = size(CC,1);
-np = size(Pts,1);
-removed = zeros(np,1);
-CRSqr = CR.^2;
-for i = 1:nc
-    distSqr = sum((repmat(CC(i,:),np,1)-Pts).^2,2);
-    removed = removed + and(distSqr<CRSqr(i), ~isFault);
-end                
-removed = logical(removed);
-Pts = Pts(~removed,:);
-end
