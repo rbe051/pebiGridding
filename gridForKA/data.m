@@ -55,13 +55,13 @@ r = [5;...
     2.55];
 
 %% Well
-wellR = 0.25;
+circR = 0.25;
 circCenter = [7,5];
 offset = 1e-4;
 phi = (linspace(0,pi))';
-topCirc = repmat(circCenter,size(phi,1),1) + wellR*[cos(phi), sin(phi)];
+topCirc = repmat(circCenter,size(phi,1),1) + circR*[cos(phi), sin(phi)];
 phi = (linspace(pi,2*pi))';
-botCirc = repmat(circCenter,size(phi,1),1) + wellR*[cos(phi), sin(phi)];
+botCirc = repmat(circCenter,size(phi,1),1) + circR*[cos(phi), sin(phi)];
 % Need topCirc and botCirc since the algorithm does not support closed
 % loops
 recLeft = [7 - sqrt(21)/20, 5.1; ...
@@ -73,5 +73,5 @@ recRight = [7 + sqrt(21)/20,5.1; ...
            7.9, 4.9;             ...
            7 + sqrt(21)/20,4.9];
 
-clear wellR dphi phi 
+clear dphi phi 
 save('data')

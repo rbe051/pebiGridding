@@ -26,7 +26,7 @@ end
 faultLines = {topCirc, botCirc, recRight,recLeft, faultLines{:}};
 wellLines = {circCenter};
 % Set parameters
-gridSize = 0.5;
+gridSize = 0.8;
 xmax = 16;
 ymax = 10;
 faultGridFactor = 1/sqrt(2); % ratio between grid cells(gridSize) and fault 
@@ -42,8 +42,20 @@ G = compositeGridPEBIdistmesh(gridSize, [xmax, ymax], 'faultlines', faultLines, 
                               'wellLines', wellLines, 'wellRefinement',true,...
                               'epsilon', epsilon,...
                               'wellGridFactor', wellGridFactor);
-                          
-                          
+                     
+% Fix labeling of cells and edges
+G = computeGeometry(G);
+centr = G.cells.centroids;
+% Lable cells inside well
+isWell = (circCenter(1)- centr(:,1)).^2 + (circCenter(2) - centr(:,2)).^2 < circR^2;
+G.cells.isWell(isWell) = true;
+% labele cells inside rectangle
+inLeftRec  = inpolygon(centr(:,1), centr(:,2), recLeft(:,1), recLeft(:,2))...
+            & (circCenter(1)- centr(:,1)).^2 + (circCenter(2) - centr(:,2)).^2 > circR^2;
+inRightRec = inpolygon(centr(:,1), centr(:,2), recRight(:,1), recRight(:,2))...
+            & (circCenter(1)- centr(:,1)).^2 + (circCenter(2) - centr(:,2)).^2 > circR^2;
+inRec = inLeftRec | inRightRec;
+G.cells.isPerf = inRec;
 % plot grid
 orange = [1,138/255,0.1];      
 figure()
@@ -51,6 +63,8 @@ hold on
 plotGrid(G, 'facecolor', 'none')
 axis equal tight off
 hold on
+plotWells(G)
+plot(G.cells.centroids(inRec,1), G.cells.centroids(inRec,2), '.')
 for i = 1:numel(wellLines)
   line = wellLines{i};
   if size(line,1) == 1
