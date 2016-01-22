@@ -67,7 +67,7 @@ p=[x(:),y(:)];                                       % List of node coordinates
 % 2. Remove points outside the region, apply the rejection method
 p=p(feval(fd,p,varargin{:})<geps,:);                 % Keep only d<0 points
 r0=1./feval(fh,p,varargin{:}).^2;                    % Probability to keep point
-p=p(rand(size(p,1),1)<r0,:); %./max(r0),:);                % Rejection method
+p=p(rand(size(p,1),1)<r0,:); %./max(r0),:);          % Rejection method
 if ~isempty(pfix), p=setdiff(p,pfix,'rows'); end     % Remove duplicated nodes
 pfix=unique(pfix,'rows','stable'); nfix=size(pfix,1);% Added stable sort
 p=[pfix; p];                                         % Prepend fix points
@@ -76,7 +76,7 @@ N=size(p,1);                                         % Number of points N
 count=0;
 pold=inf;                                            % For first iteration
 clf,view(2),axis equal,axis off
-while 1 & count<2000
+while 1 && count<2000
   count=count+1;
   % 3. Retriangulation by the Delaunay algorithm
   if max(sqrt(sum((p-pold).^2,2))/h0)>ttol           % Any large movement?
@@ -123,7 +123,7 @@ while 1 & count<2000
 end
 
 if count == 1000
-    warning('DistMesh did not converge in 1000 iterations.')
+    warning('DistMesh did not converge in 2000 iterations.')
 end
 
 % Clean up and plot final mesh

@@ -1,4 +1,4 @@
-function G = compositeGridPEBI(resGridSize, pdims, varargin)
+function G = compositePebiGrid(resGridSize, pdims, varargin)
     % Creates a PEBI grid adapting to faults and well traces.
     %
     % Argumets:
@@ -215,10 +215,10 @@ function G = compositeGridPEBI(resGridSize, pdims, varargin)
     faultType = [0; faultType];
     ft1 = faultType(N(:,1));
     ft2 = faultType(N(:,2));
-    G.faces.isFault = logical(ft1 == ft2 & ft1 > 0 & ft2 >0);
+    G.faces.tag = logical(ft1 == ft2 & ft1 > 0 & ft2 >0);
     
     %Label well cells
-    G.cells.isWell = logical(wellType);
+    G.cells.tag = logical(wellType);
 
 end
 
