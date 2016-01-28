@@ -1,0 +1,24 @@
+*.log
+*.aux
+*.bbl
+*.out
+*.toc
+*~
+*.el
+*auto/*
+*chapter/auto/*
+*.blg
+*.bak
+*.gz
+#*#
+*.fdb_latexmk
+*.fls
+*.pdf
+
+# Except
+!fig/ch03/*
+!fig/ch02/*
+!fig/ch04/*
+!fig/ch04/numTest/*
+!fig/ch05/*
+!literature/*
