@@ -9,26 +9,36 @@ function [G] = voronoi3D(pts, bound)
 
     % Calculate boundary normals
     normals = calcNormals(K, bound);
-    % Find boundary planes that equal
+    % Find and remove boundary planes that are the same
     remove = remEqPlanes(bound(K(:,1),:), normals);
     K = K(~remove,:);
     normals = normals(~remove,:);
     
     % mirror points around planes
-    newPts = [];
     for i = 1:size(K,1)
-        newPts = [newPts; mirror(pts, bound(K(i,1),:),normals(i,:))];
+        pts = [pts; mirror(pts, bound(K(i,1),:),normals(i,:))];
     end
     
-    figure
-    hold on
-    plot3(bound(:,1), bound(:,2), bound(:,3),'.')
-    plot3(pts(:,1),pts(:,2),pts(:,3),'m.')
-    pts = [pts;newPts];
-    plot3(pts(:,1),pts(:,2),pts(:,3),'ro')
+    %figure
+    %hold on
+    %plot3(bound(:,1), bound(:,2), bound(:,3),'.')
+    %plot3(pts(:,1),pts(:,2),pts(:,3),'m.')
+    %plot3(pts(:,1),pts(:,2),pts(:,3),'ro')
     
     [V, C] = voronoin(pts);
+  
     
+    % Find auxillary cells
+    remove = false(numel(C),1);
+    for i = 1:numel(C)
+        avgCell = sum(V(C{i},:),1)/size(C{i},2);
+        if any(isinf(avgCell)) || isnan(pointLocation(dt, avgCell));
+            remove(i) = true;
+        end
+    end
+    
+    G = voronoi2mrst(V,C, remove);
+
 
     for i = 1:numel(C)
        VertCell = V(C{i},:); 
@@ -37,19 +47,10 @@ function [G] = voronoi3D(pts, bound)
             patch('Vertices',VertCell,'Faces',KVert,'FaceColor',[0,0,i/numel(C)],'FaceAlpha',0.5) 
        end
     end
-    G = [];
+
 end
 
-function n = calcNormals(ID, pts)
-    % Calculates the normals of the triangles pts(ID)
-    
-    tri = pts(ID',:);
-    x0  = tri(1:3:end,:);
-    x1  = tri(2:3:end,:);
-    x2  = tri(3:3:end,:);
-    n   = cross(x1 - x0, x2 - x0);
-    n   = bsxfun(@rdivide, n, sqrt(sum(n.^2,2)));
-end
+
 
 function r = remEqPlanes(x0, n)
     r = false(size(x0,1),1);
