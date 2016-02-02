@@ -10,7 +10,7 @@ function [G] = voronoi3D(pts, bound)
     % Calculate boundary normals
     normals = calcNormals(K, bound);
     % Find and remove boundary planes that are the same
-    remove = remEqPlanes(bound(K(:,1),:), normals);
+    remove = remParPlanes(bound(K(:,1),:), normals);
     K = K(~remove,:);
     normals = normals(~remove,:);
     
@@ -62,13 +62,11 @@ function [G] = voronoi3D(pts, bound)
 
 end
 
-
-
-function r = remEqPlanes(x0, n)
+function r = remParPlanes(x0, n)
     r = false(size(x0,1),1);
     for i = 1:size(n,1)-1
         % test if point is on plane
-        isOnPlane = abs(bsxfun(@minus, x0(i,:), x0(i+1:end,:))*n(i,:)') < 50*eps;
+        isOnPlane = (bsxfun(@minus, x0(i,:), x0(i+1:end,:))*n(i,:)') < 50*eps;
         if any(isOnPlane)
             % test normals are parallel
             isOnPlane = [false(i,1);isOnPlane];
@@ -76,6 +74,7 @@ function r = remEqPlanes(x0, n)
         end
     end
 end
+
 
 function newPts = mirror(pts, x0, n)
     % Mirrors pts on plane
