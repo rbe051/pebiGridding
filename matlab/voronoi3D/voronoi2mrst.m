@@ -6,43 +6,63 @@ function G = voronoi2mrst(V, C, aux)
 
     % Remove auxillary cells
     C = {C{~aux}};
-    cellNode = cumsum([1, cellfun(@numel, C)]);
+    cell2Node = cumsum([1, cellfun(@numel, C)]);
     activeVertex = cell2mat(C);
     [activeVertex, ~, C] = unique(activeVertex);
     V = V(activeVertex,:);
 
     % Set number of cells
-    G.cells.num = numel(cellNode)-1;
+    G.cells.num = numel(cell2Node)-1;
     
     % Find half faces
     facePos = ones(G.cells.num+1,1);
-    hf = [];
-    nodePos = [1];
+    hf = [];      
+    hf2Node = [1]; 
     %figure()
     for i = 1:G.cells.num
-        hull = C(cellNode(i)-1+convhull(V(C(cellNode(i):cellNode(i+1)-1),:))); 
+        hull = C(cell2Node(i)-1+convhull(V(C(cell2Node(i):cell2Node(i+1)-1),:))); 
         [hull, localPos] = remParFaces(V, hull);
         hf = [hf; hull];
-        nodePos = [nodePos; nodePos(end)-1 + localPos(2:end)];
-        facePos(i+1) = numel(nodePos)-1;
+        hf2Node = [hf2Node; hf2Node(end)-1 + localPos(2:end)];
+        facePos(i+1) = numel(hf2Node);
+        for j = facePos(i):facePos(i+1)-1
+        b = plot3(V(hf(hf2Node(j):hf2Node(j+1)-1),1), ...
+                  V(hf(hf2Node(j):hf2Node(j+1)-1),2), ...
+                  V(hf(hf2Node(j):hf2Node(j+1)-1),3), ...
+                  'mo','markersize',30);
+            delete(b);
+        end
        %patch('Vertices',V,'Faces',hf(facePos(i):facePos(i+1)-1,:),'FaceColor',[0,0,i/numel(C)],'FaceAlpha',0.5) 
     end
     G.cells.facePos = facePos;
-    G.faces.nodePos = nodePos;
     
-    %% Continue here!!
-    [hf, I]      = sort(hf,2);
-    [hf, ~, ic]  = unique(hf, 'rows');
+  
+    %[hf, I]      = faceSort(hf,hf2Node); %I believe I sort in line 10, so this is unnessesary
+    [hf, nodePos, ic]  = uniqueFace(hf,hf2Node,V);
+    
+    G.faces.nodePos = nodePos;
+    for j = 1:numel(facePos)-1
+        faces = ic(facePos(j):facePos(j+1)-1)
+        for i = 1:numel(faces)
+            b = plot3(V(hf(nodePos(faces(i)):nodePos(faces(i)+1)-1),1), ...
+                      V(hf(nodePos(faces(i)):nodePos(faces(i)+1)-1),2), ...
+                      V(hf(nodePos(faces(i)):nodePos(faces(i)+1)-1),3), ...
+                        'mo','markersize',30);
+            delete(b);
+        end
+    end
+    
     G.faces.nodes = reshape(hf', [], 1);
     G.cells.faces = ic;
     G.nodes.coords = V;
-    G.nodes.num    = size(V,1);  
-    G.faces.num     = size(hf,1);
+    G.nodes.num   = size(V,1);  
+    G.faces.num   = max(G.cells.faces);
 
     cellNo            = rldecode(1:G.cells.num, diff(G.cells.facePos), 2).';
     
     G.faces.neighbors = zeros(G.faces.num,2);
     hold on
+          
     for i = 1:G.faces.num
         neigh = G.cells.faces==i;
         find(neigh)
@@ -69,6 +89,52 @@ function G = voronoi2mrst(V, C, aux)
 end
 
 
+function [faces, I] = faceSort(faces, nodePos)
+    I = zeros(size(faces));
+    for i = 1:size(nodePos)-1
+        [faces(nodePos(i):nodePos(i+1)-1),I(nodePos(i):nodePos(i+1)-1)] ...
+            = sort(faces(nodePos(i):nodePos(i+1)-1));
+        I(nodePos(i):nodePos(i+1)-1) = I(nodePos(i):nodePos(i+1)-1) + nodePos(i)-1;
+    end
+end
+
+
+function [newNodes,nodePos, ic] = uniqueFace(nodes, hf2node, V)
+    faceSize = diff(hf2node);
+    [~,ias,~] = unique(faceSize);
+
+    newNodes = [];
+    nodePos  = [1];
+    ic = zeros(size(hf2node,1)-1,1);
+    for i = 1:numel(ias)
+        testPos = faceSize(ias(i))==faceSize;
+        fromFace = hf2node([testPos;false]);
+        toFace   = hf2node([false;testPos]) - 1;
+        faceID  = arrayfun(@(l,r) (l:r), fromFace, toFace, 'un', 0)';
+        faceID  = cell2mat(faceID);
+
+        testFace = reshape(nodes(faceID),faceSize(ias(i)),[]);
+        
+        testFace = testFace';
+        [aaa,ia2,ic2] = unique(sort(testFace,2),'rows');
+        temp = testFace(ia2,:)';
+        newNodes = [newNodes;temp(:)];
+        ic(testPos) = ic2+numel(nodePos)-1;
+        nodePos = [nodePos; ...
+                   nodePos(end)+cumsum(repmat(faceSize(ias(i)),[size(temp,2),1]))];
+
+    end
+    
+    %% plot for testing    
+    for j = 1:numel(nodePos)-1
+        b = plot3(V(newNodes(nodePos(j):nodePos(j+1)-1),1), ...
+                  V(newNodes(nodePos(j):nodePos(j+1)-1),2), ...
+                  V(newNodes(nodePos(j):nodePos(j+1)-1),3), ...
+                  'mo','markersize',30);
+            delete(b);
+        end
+end
+
 function [newHull, nodePos] = remParFaces(V, hull)
     newHull = [];
     nodePos = [1];
@@ -78,16 +144,46 @@ function [newHull, nodePos] = remParFaces(V, hull)
         % Find face normals that are equal to top face normal
         parFace = n*(n(1,:)')> 1 - 50*eps;
         % Merge parallel faces
-        tmp = unique(reshape(hull(parFace,:),[],1));
-        nf  = numel(tmp); 
+        tmp = mergeFaces(V, hull, parFace, n(1,:)');
+
+        nf  = numel(tmp);
+        hold on
+        for i = 1:numel(tmp)
+            b= plot3(V(tmp(i),1), V(tmp(i),2), V(tmp(i),3),'g.','markersize', 30);
+            delete(b)
+        end
         newHull = [newHull; tmp];
-        nodePos = [nodePos; nodePos(end) + nf];
+        nodePos = [nodePos; nodePos(end) + nf]
         % Update hull
         hull = hull(~parFace,:);
         n    = n(~parFace,:);
     end
 end
 
+
+function [merged] = mergeFaces(V, H, F, n)
+    % Merge faces in counterclockwise direction
+    
+    % shif coordinate system
+    merged = unique(reshape(H(F,:),[],1));
+    x0 = mean(V(merged,:));
+    V = bsxfun(@minus, V, x0);
+
+    % Create new basis
+    id = find(F);
+    basis = [V(H(id(1),1:2),:)',n];
+    basis(:,1) = basis(:,1)/norm(basis(:,1),2);
+    basis(:,2) = basis(:,2)-(basis(:,1)'*basis(:,2))*basis(:,1);
+    basis(:,2) = basis(:,2)/norm(basis(:,2),2);
+    
+    % find new coordinates
+    VB = (basis\V(merged,:)')';
+    %Remove normal coordinate (this is zero)
+    VB = VB(:,[1,2]);
+    theta = atan2(VB(:,2),VB(:,1));
+    [~,i] = sort(theta);
+    merged = merged(i);    
+end
 
 function [ID] = remEqEdges(V, n)
 % Removes all edges that whose neighboor faces has equal normals
