@@ -1,2 +1,12 @@
 *.m#
 *.m~
+*.log
+*.aux
+*.bbl
+*.out
+*.toc
+*~
+*.el
+*.blg
+*.bak
+*.gz
