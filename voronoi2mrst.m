@@ -5,7 +5,7 @@ function G = voronoi2mrst(V, C, aux, name)
            'space dimensions.'], mfilename);
 
     % Remove auxillary cells
-    C            = {C{~aux}};
+    C            = C(~aux)';
     cell2Node    = cumsum([1, cellfun(@numel, C)]);
     activeVertex = cell2mat(C);
     [activeVertex, ~, C] = unique(activeVertex);
@@ -15,7 +15,7 @@ function G = voronoi2mrst(V, C, aux, name)
     G.cells.num  = numel(cell2Node)-1;
     
     %% Find half faces
-    facePos    = zeros(G.cells.num+1,1);
+    facePos    = ones(G.cells.num+1,1);
     hf         = [];      
     hf2NodePos = [1]; 
 
@@ -26,7 +26,7 @@ function G = voronoi2mrst(V, C, aux, name)
         [hull, localPos] = remParFaces(V, hull);
         hf           = [hf; hull];
         hf2NodePos   = [hf2NodePos; hf2NodePos(end)-1 + localPos(2:end)];
-        facePos(i+1) = numel(hf2NodePos);
+        facePos(i+1) = numel(hf2NodePos-1);
     end
     G.cells.facePos = facePos;
     
