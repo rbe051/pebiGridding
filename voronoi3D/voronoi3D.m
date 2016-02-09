@@ -1,6 +1,6 @@
 function [G] = voronoi3D(pts, bound)
     % function creates 3D voronoi diagram inside bound
-    
+        
     % Calculate convex hull and remove all points outside domain.
     dt = delaunayTriangulation(bound);
     K = convexHull(dt);
@@ -30,10 +30,11 @@ function [G] = voronoi3D(pts, bound)
             remove(i) = true;
         end
     end
-    
-    % Convert to mrst Grid-structure
-    G = voronoi2mrst(V,C, remove, mfilename);
 
+    % Convert to mrst Grid-structure
+    G = voronoi2mrst(V, C, remove, mfilename);
+
+    
 end
 
 
