@@ -40,12 +40,12 @@ function G = voronoi2mrst(V, C, aux, name)
     G.faces.num     = max(G.cells.faces);
 
     %% Set neighbors
-    cellNo          = rldecode(1:G.cells.num, diff(G.cells.facePos), 2).';
+    cellNo            = rldecode(1:G.cells.num, diff(G.cells.facePos), 2).';
     G.faces.neighbors = zeros(G.faces.num,2);
     for i = 1:G.faces.num
         neigh = G.cells.faces==i;
         if sum(neigh)==2
-            G.faces.neighbors(i,:) = cellNo(neigh);
+            G.faces.neighbors(i,[1,2]) = cellNo(neigh);
         else
             G.faces.neighbors(i,:) = [cellNo(neigh),0];
         end
@@ -106,7 +106,9 @@ function [newHull, nodePos] = remParFaces(V, hull)
     nodePos = [1];
     % Calculate normals
     n       = calcNormals(hull, V);
-    
+%     a = patch('Vertices', V, 'faces', hull,'facecolor','y','facealpha',0.1);
+%     hold on
+
     while ~isempty(hull)
         % Find face normals that are equal to first face normal in stack
         parFace = n*(n(1,:)')> 1 - 50*eps;
@@ -119,20 +121,39 @@ function [newHull, nodePos] = remParFaces(V, hull)
         hull    = hull(~parFace,:);
         n       = n(~parFace,:);
     end
+    
+%     a = [];
+%     for i = 1:numel(nodePos)-1
+%        nodes = newHull(nodePos(i):nodePos(i+1)-1);
+%        a1 = patch('Vertices', V, 'faces', nodes','facecolor','y');
+%        a = [a,a1];
+%     end
+%     hold on
+%     for i = 1:numel(nodePos)-1
+%        nodes = newHull(nodePos(i):nodePos(i+1)-1);
+%        b = patch('Vertices', V, 'faces', nodes','facealpha',0.1);
+%        for j=1:numel(nodes);
+%            b2 = plot3(V(nodes(j),1),V(nodes(j),2),V(nodes(j),3),'.g','markersize',30);
+%            b = [b, b2];
+%        end
+%        delete(b)
+%     end
+%     delete(a)
+    
 end
 
 
 function [merged] = mergeFaces(V, H, F, n)
     % Merge faces nodes in counterclockwise direction
     
-    % shif coordinate system
+    % Find unique node index
     merged     = unique(reshape(H(F,:),[],1));
-    x0         = mean(V(merged,:));
-    V          = bsxfun(@minus, V, x0);
-
-    % Create new basis
+    % shift coordinate system
     id         = find(F);
-    basis      = [V(H(id(1),1:2),:)',n];
+    x0         = mean(V(H(id(1),:),:));
+    V          = bsxfun(@minus, V, x0);
+    % Create new basis
+    basis      = [V(H(id(1),1:2),:)'];
     basis(:,1) = basis(:,1)/norm(basis(:,1),2);
     basis(:,2) = basis(:,2)-(basis(:,1)'*basis(:,2))*basis(:,1);
     basis(:,2) = basis(:,2)/norm(basis(:,2),2);
@@ -141,10 +162,23 @@ function [merged] = mergeFaces(V, H, F, n)
     VB         = (basis\V(merged,:)')';
     
     % Sort nodes based on the angle
-    VB         = VB(:,[1,2]); %Remove normal coordinate (this is zero)
     theta      = atan2(VB(:,2),VB(:,1));
     [~,i]      = sort(theta);
-    merged     = merged(i);    
+    merged     = merged(i);
+    
+%     
+%     
+%     V = bsxfun(@plus, V, x0);
+%     b = patch('Vertices', V, 'faces', merged','facealpha',0.1);
+%     cent = sum(V(merged,:),1)/numel(merged);
+%     b2 = plot3([cent(1),cent(1)+n(1)],[cent(2),cent(2)+n(2)], [cent(3),cent(3)+n(3)]);
+%     b = [b,b2]
+%     for j = 1:numel(merged)
+%         b2 = plot3(V(merged(j),1), V(merged(j),2), V(merged(j),3),'.g','markersize',30);
+%         b = [b,b2];
+%     end
+%     delete(b)
+    
 end
 
 function [ID] = remEqEdges(V, n)
