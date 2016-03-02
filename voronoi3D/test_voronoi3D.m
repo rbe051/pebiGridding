@@ -23,4 +23,15 @@ pts=    [-0.5443    0.4773    0.2519;...
 % Generate voronoi grid
 G = voronoi3D(pts, boundary);
 
-plotGrid(G,'edgecolor','r');
+str = [];
+figure()
+hold on
+for i = 1:size(pts,1)
+   plot3(pts(i,1),pts(i,2),pts(i,3),'.','markersize',30)
+   str = [str;num2str(i)];
+end
+legend(str)
+
+for i = 1:G.cells.num
+    plotGrid(G, i, 'edgecolor','r','facealpha',0.2);
+end

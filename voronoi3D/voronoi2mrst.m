@@ -21,7 +21,7 @@ function G = voronoi2mrst(V, C, aux, name)
 
     for i = 1:G.cells.num
         % Calculate convex hull
-        hull = C(cell2Node(i)-1+convhull(V(C(cell2Node(i):cell2Node(i+1)-1),:)));
+        hull = C(cell2Node(i)-1+convhull(V(C(cell2Node(i):cell2Node(i+1)-1),:),'simplify',true));
         % Merge triangle faces into polygons
         [hull, localPos] = remParFaces(V, hull);
         hf           = [hf; hull];
@@ -106,6 +106,9 @@ function [newHull, nodePos] = remParFaces(V, hull)
     nodePos = [1];
     % Calculate normals
     n       = calcNormals(hull, V);
+    e = any(isnan(n),2);
+    n = n(~e,:);
+    hull = hull(~e,:);
 %     a = patch('Vertices', V, 'faces', hull,'facecolor','y','facealpha',0.1);
 %     hold on
 
