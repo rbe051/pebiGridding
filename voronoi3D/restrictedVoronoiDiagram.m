@@ -3,49 +3,12 @@ function [G] =restrictedVoronoiDiagram(p, bound)
 dt = delaunayTriangulation(p);
 E  = edges(dt);
 
-surf = bound.freeBoundary;
-
-edge2Vert = [surf(:,1:2),sort(surf(:,2:3),2),surf(:,[1,3])]';
-edge2Vert = reshape(edge2Vert, 2,[])';
-[~, IC] = ismember(edge2Vert,bound.edges,'rows');
-face2edge = reshape(IC',3, [])';
+dtB.ConnectivityList = bound.freeBoundary;
+dtB.Points = bound.Points;
 
 
-s = dsearchn(dt.Points,sum(bound.Points(surf(1,:),:)/3,1));
-
-Q = [1, s];
-V = [];
-symV = cell(0);
-C = cell(size(p,1),1);
-CT = cell(numel(C),1);
-CT{s} = 1;
-disp(E)
-while ~isempty(Q)
-    t =  Q(end,1); s = Q(end,2);
-    Q = Q(1:end-1,:);
-    NC = [E(:,2)==s, E(:,1)==s];
-    bisect = find(any(NC,2));
-
-    NT = findNeighbours(surf, t);    %sum(ismember(face2vert,face2vert(t,:)),2)==2;
-
-
-    n = bsxfun(@minus, dt.Points(E(NC),:), dt.Points(s,:));
-    n = bsxfun(@rdivide, n,sqrt(sum(n.^2,2)));
-    x0 = bsxfun(@plus, dt.Points(E(NC),:), dt.Points(s,:))/2;
-
-
-    symT = {-find(any(surf==surf(t,1),2)); ...
-            -find(any(surf==surf(t,2),2)); ...
-            -find(any(surf==surf(t,3),2))};
-
-    
-    [newVertex, symT] = clipPolygon(bound.Points(surf(t,:),:), n,x0,symT,symV,bisect);
-    symV = [symV; symT];
-    C{s} = [C{s}, size(V,1)+1:size(V,1)+size(newVertex,1)];
-    V = [V;newVertex];
-    [Q,CT] = updateQue(Q, symT, CT, E, NC, s, t);    
-
-end
+% Clip grid against boundary
+[V,C,symV] = clipGrid(dt,dtB);
 
 % Remove unwanted vertices (e.g. duplicates) 
 [V, C] = cleanUpGrid(V, C, symV);
