@@ -15,5 +15,7 @@ You should have received a copy of the GNU General Public License
 along with Voronoi2D.  If not, see <http://www.gnu.org/licenses/>.
 
 If you use Voronoi2D in any program or publication, please acknowledge
-its author by adding a reference to: Runar Lie Berge, Unstructured Grids Adapting to Geological Features, January 2016, Department of Mathematics Norwegian University of Science and Technology.
+its author by adding a reference to: Runar Lie Berge, Unstructured Grids 
+Adapting to Geological Features, January 2016, Project Report, Department of
+Mathematics, Norwegian University of Science and Technology.
 
