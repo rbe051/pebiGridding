@@ -9,8 +9,7 @@ function [newPoints, dt] = eqInterpret(path, dt)
     %   newPoints  The interpolated points
     %   dt         distance between the interpolated points
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Runar Lie Berge (runarlb@stud.ntnu.no)
-    % January 2016
+    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     linesDist = sqrt(sum(diff(path,[],1).^2,2));
     linesDist = [0; linesDist]; % add the starting point

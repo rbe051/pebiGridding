@@ -18,8 +18,7 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     % circRadius        The radius of the above circles
     % CCid              Mapping from fault points to circles.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %% Runar Lie Berge (runarlb@stud.ntnu.no)
-    %% January 2016
+    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     %% Load options

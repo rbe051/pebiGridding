@@ -1,3 +1,4 @@
+% Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 %% Single fault intersected by several wells 
 % close all, clear
 % 

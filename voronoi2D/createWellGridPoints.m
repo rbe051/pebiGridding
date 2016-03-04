@@ -1,4 +1,5 @@
 function [Pts, gridSpacing] = createWellGridPoints(wellLine, wellDs) 
+    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
     assert(0<wellDs)
     assert(size(wellLine,1)>=1, size(wellLine,2)==2);
     if (size(wellLine,1) == 1)

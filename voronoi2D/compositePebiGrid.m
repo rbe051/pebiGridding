@@ -33,10 +33,8 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     %
     % Returns:
     %   G                   A mrst grid structure. 
-    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %% Written by Runar Lie Berge (runarlb@stud.ntnu.no)
-    %% January 2016
+    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
 

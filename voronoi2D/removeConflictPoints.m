@@ -17,8 +17,7 @@ function [Pts, wellType, removed] = removeConflictPoints(Pts, gridSpacing, ...
     %                   that were removed
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %% Runar Lie Berge (runarlb@stud.ntnu.no)
-    %% January 2016
+    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                                                     
     gridSpacing = gridSpacing*(1-1e-10); % To avoid floating point errors
