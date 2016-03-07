@@ -1,4 +1,4 @@
-function [G] =restrictedVoronoiDiagram(p, bound)
+function [G] = restrictedVoronoiDiagram(p, bound)
 
 dt = delaunayTriangulation(p);
 E  = edges(dt);
@@ -48,13 +48,15 @@ end
 
 function [V, C] = cleanUpGrid(V, C,symV)
     % Remove duplicate vertexes
-    symV = cellfun(@sort, symV,'UniformOutput', false);
-    symV = cellfun(@(c) num2str(c'), symV,'UniformOutput', false);
-    [~,IA,IC] = unique(symV);
-    VO = V;
-    CO = C;
+%     symV = cellfun(@sort, symV,'UniformOutput', false);
+%     symV = cellfun(@(c) num2str(c'), symV,'UniformOutput', false);
+%     [~,IA,IC] = unique(symV);
+%     VO = V;
+%     CO = C;
+%     C = cellfun(@(c) unique(IC(c)'), C,'UniformOutput',false);
+%     V = V(IA,:);
+    [V,~,IC] = uniquetol(V,50*eps,'byRows',true);
     C = cellfun(@(c) unique(IC(c)'), C,'UniformOutput',false);
-    V = V(IA,:);
     
 end
 
