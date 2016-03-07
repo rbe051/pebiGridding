@@ -41,7 +41,7 @@ C = cellfun(@(cint,cext) [cint,cext+ni], CInt, C,'uniformOutput',false) ;
 %     end
 % end
 
-G = voronoi2mrst(V,C, false(numel(C),1),'pebi')
+G = voronoi2mrst(V,C, false(numel(C),1),'pebi');
 
 
 end

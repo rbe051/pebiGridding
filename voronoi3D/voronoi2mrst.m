@@ -174,9 +174,7 @@ function [merged] = mergeFaces(V, H, F, n)
     j = 1;
     k = 2;
     rem = false(size(merged,1),1);
-    figure(2)
-    a = plot(VB(:,1),VB(:,2),'.','markersize',30);
-    
+        
     while j<size(merged,1)-1
         if isColinear(V([merged(j);merged(k:k+1)],:));
            rem(k) = true;
@@ -191,10 +189,6 @@ function [merged] = mergeFaces(V, H, F, n)
 
     end
     merged = merged([~rem(end-1);~rem(2:end-2);false;false],:);
-    figure(1)
-    b = plot3(V(merged,1),V(merged,2),V(merged,3),'.','markersize',30);
-    delete(b);
-    delete(a);
 
 %     
 %     
@@ -211,7 +205,7 @@ function [merged] = mergeFaces(V, H, F, n)
     
 end
 function [id] = isColinear(pts)
-    id = rank(bsxfun(@minus,pts(2:end,:),pts(1,:)))<2;
+    id = rank(bsxfun(@minus,pts(2:end,:),pts(1,:)),50*eps)<2;
 end
 
 function [ID] = remEqEdges(V, n)

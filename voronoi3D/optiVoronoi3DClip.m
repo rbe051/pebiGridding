@@ -59,6 +59,7 @@ function [f, g] = objectiveFunc(pts, bndr, fault, rho)
     [n,x0] = normalPlanes(V,C);
     [V,C,cells, symV] = VOuter(V,C,symV,pts,G,dt,n,x0);
     [T, triPos, vol] = triang(V,C,cells);
+
     gv = volumeGrad(V,T,triPos,cells,symV,pts);
     
     intFun = @(x,i) sum(repmat(rho(x),1,3).*(x-repmat(pts(i,:),size(x,1),1)).^2,2);
@@ -75,8 +76,12 @@ end
 
 function [g] = volumeGrad(V,T,triPos,cells,symV,pts)
 g = zeros(size(pts));
-for i = 1:numel(cells)
-
+for i = 1:numel(triPos)-1
+    tri = T(triPos(i):triPos(i+1)-1;
+    for j = 1:size(tri,1)
+       gradC1 = gradC(
+        
+    end
 end
 
 end
@@ -84,14 +89,14 @@ end
 
 function [T,triPos, vol] = triang(V,C,cells)
 T = [];
-triPos = zeros(numel(C)+1,1);
+triPos = zeros(numel(cells)+1,1);
 triPos(1)=1;
 vol = 0;
 for i = 1:numel(cells)
     c = C{cells(i)};
     [hull,volAdd] = convhull(V(c,:));
     T = [T;c(hull)]; 
-    triPos(i+1) = size(hull,1)+1;  
+    triPos(i+1) = triPos(i) + size(hull,1);  
     vol = vol+volAdd;
 end
 end
@@ -129,13 +134,9 @@ for i=1:numel(C)
         C{i} = [C{i},size(V,1)+1:size(V,1)+sum(outer)];
         V = [V; G.nodes.coords(nodes(outer),:)];        
         cells = [cells;i];
-            b = findBisector(G,dt.edges,nodes(outer),i)
+        symV = [symV;findBisector(G,dt.edges,nodes(outer),i)];
     end
 end
-symAdd = cell(size(V,1)-numel(symV),1);
-symAdd(:) = {[1,1,1]};
-symV = [symV; symAdd];
-
 end
 
 
