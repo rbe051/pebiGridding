@@ -154,21 +154,48 @@ function [merged] = mergeFaces(V, H, F, n)
     % shift coordinate system
     id         = find(F);
     x0         = mean(V(H(id(1),:),:));
-    V          = bsxfun(@minus, V, x0);
+    VC          = bsxfun(@minus, V, x0);
     % Create new basis
-    basis      = [V(H(id(1),1:2),:)'];
+    basis      = VC(H(id(1),1:2),:)';
     basis(:,1) = basis(:,1)/norm(basis(:,1),2);
     basis(:,2) = basis(:,2)-(basis(:,1)'*basis(:,2))*basis(:,1);
     basis(:,2) = basis(:,2)/norm(basis(:,2),2);
     
     % find coordinates in new basis
-    VB         = (basis\V(merged,:)')';
+    VB         = (basis\VC(merged,:)')';
     
     % Sort nodes based on the angle
     theta      = atan2(VB(:,2),VB(:,1));
     [~,i]      = sort(theta);
     merged     = merged(i);
     
+    % Remove colinear points
+    merged = [merged;merged(1:2)];
+    j = 1;
+    k = 2;
+    rem = false(size(merged,1),1);
+    figure(2)
+    a = plot(VB(:,1),VB(:,2),'.','markersize',30);
+    
+    while j<size(merged,1)-1
+        if isColinear(V([merged(j);merged(k:k+1)],:));
+           rem(k) = true;
+           k = k+1;
+        else
+            j = k;
+            k = j+1;
+        end
+        if  k==size(merged,1)
+            break
+        end
+
+    end
+    merged = merged([~rem(end-1);~rem(2:end-2);false;false],:);
+    figure(1)
+    b = plot3(V(merged,1),V(merged,2),V(merged,3),'.','markersize',30);
+    delete(b);
+    delete(a);
+
 %     
 %     
 %     V = bsxfun(@plus, V, x0);
@@ -182,6 +209,9 @@ function [merged] = mergeFaces(V, H, F, n)
 %     end
 %     delete(b)
     
+end
+function [id] = isColinear(pts)
+    id = rank(bsxfun(@minus,pts(2:end,:),pts(1,:)))<2;
 end
 
 function [ID] = remEqEdges(V, n)
