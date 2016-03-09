@@ -2,18 +2,17 @@
 close all; clear;
 addpath('../', '../mrstTweak/')
 mrstModule add mimetic
-mrstModule add distmesh
 
-typeOfGrid = 'fineCart';
+typeOfGrid = 'composite';
 fileFormat = 'pdfNoVector';
 
 %% grid parameters
 xmax = 20;                              % Set grid dimentions
 ymax = 20; 
 %gridSize = xmax*1/7.5;     % distmesh
-%gridSize = xmax*1/8;     % composite
+gridSize = xmax*1/8;     % composite
 %gridSize = xmax*1/11;     % coarseCart
-gridSize = xmax/20;             % fine cart
+%gridSize = xmax/20;             % fine cart
 
 faultLine = {[16, 5; 3,10.1]};
 wellLine = {[5,5], [15.0,15.0]};                % Set source center
