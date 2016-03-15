@@ -14,7 +14,7 @@ function G = voronoi2mrst(V, C, aux, name)
     % Set number of cells
     G.cells.num  = numel(cell2Node)-1;
     
-    %% Find half faces
+    % Find half faces
     facePos    = ones(G.cells.num+1,1);
     hf         = [];      
     hf2NodePos = [1]; 
@@ -30,8 +30,8 @@ function G = voronoi2mrst(V, C, aux, name)
     end
     G.cells.facePos = facePos;
     
-    %% Find faces
-    [nodes, nodePos, ic]  = uniqueFace(hf,hf2NodePos); 
+    % Find faces
+    [nodes, nodePos, ic] = uniqueFace(hf,hf2NodePos); 
     G.faces.nodePos = nodePos;
     G.faces.nodes   = reshape(nodes', [], 1);
     G.cells.faces   = ic;
@@ -39,7 +39,7 @@ function G = voronoi2mrst(V, C, aux, name)
     G.nodes.num     = size(V,1);  
     G.faces.num     = max(G.cells.faces);
 
-    %% Set neighbors
+    % Set neighbors
     cellNo            = rldecode(1:G.cells.num, diff(G.cells.facePos), 2).';
     G.faces.neighbors = zeros(G.faces.num,2);
     for i = 1:G.faces.num
@@ -51,7 +51,7 @@ function G = voronoi2mrst(V, C, aux, name)
         end
     end
     
-    %% Set grid info
+    % Set grid info
     G.type    = { name };
     G.griddim = 3;
 end
@@ -204,9 +204,7 @@ function [merged] = mergeFaces(V, H, F, n)
 %     delete(b)
     
 end
-function [id] = isColinear(pts)
-    id = rank(bsxfun(@minus,pts(2:end,:),pts(1,:)),50*eps)<2;
-end
+
 
 function [ID] = remEqEdges(V, n)
 % Removes all edges that whose neighboor faces has equal normals

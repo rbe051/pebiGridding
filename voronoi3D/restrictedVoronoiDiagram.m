@@ -1,4 +1,4 @@
-function [G] = restrictedVoronoiDiagram(p, bound)
+function [G,dt,symV] = restrictedVoronoiDiagram(p, bound)
 
 dt = delaunayTriangulation(p);
 E  = edges(dt);
@@ -10,8 +10,6 @@ dtB.Points = bound.Points;
 % Clip grid against boundary
 [V,C,symV] = clipGrid(dt,dtB);
 
-% Remove unwanted vertices (e.g. duplicates) 
-[V, C] = cleanUpGrid(V, C, symV);
 
 %% Add inner vertices, i.e. intersection of three bisections
 
@@ -32,6 +30,7 @@ newIdx(keepNum) = (1:size(VInt,1))';
 CInt = cellfun(@(c) newIdx(intersect(c,keepNum))', CInt,'uniformOutput',false);
 ni = size(VInt,1);
 V = [VInt;V];
+symV = [cell(size(VInt,1),1);symV];
 C = cellfun(@(cint,cext) [cint,cext+ni], CInt, C,'uniformOutput',false) ;
 
 % for i = 1:numel(C)
@@ -43,22 +42,9 @@ C = cellfun(@(cint,cext) [cint,cext+ni], CInt, C,'uniformOutput',false) ;
 
 G = voronoi2mrst(V,C, false(numel(C),1),'pebi');
 
-
 end
 
-function [V, C] = cleanUpGrid(V, C,symV)
-    % Remove duplicate vertexes
-%     symV = cellfun(@sort, symV,'UniformOutput', false);
-%     symV = cellfun(@(c) num2str(c'), symV,'UniformOutput', false);
-%     [~,IA,IC] = unique(symV);
-%     VO = V;
-%     CO = C;
-%     C = cellfun(@(c) unique(IC(c)'), C,'UniformOutput',false);
-%     V = V(IA,:);
-    [V,~,IC] = uniquetol(V,50*eps,'byRows',true);
-    C = cellfun(@(c) unique(IC(c)'), C,'UniformOutput',false);
-    
-end
+
 
 function [symV] = updateSym(localSym, NC, NT)
     if localSym<0

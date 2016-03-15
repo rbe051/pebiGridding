@@ -34,10 +34,6 @@ for i = 1:size(n,1)
     
     symP = [intersectUnion(symP,c2, bisector(i)); symP(c3+1)];
 
-    if any(cellfun(@(c) all(ismember(c,[-5;-2;2])),symP))
-        disp('uyay')
-    end
-           
 
     alpha = abs(d(c2))./(abs(d(c2))+abs(d(c2+1)));
     p  = [bsxfun(@times,p(c2+1,:)-p(c2,:),alpha)+p(c2,:);p(c3+1,:)];

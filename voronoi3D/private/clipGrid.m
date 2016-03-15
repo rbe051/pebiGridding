@@ -37,8 +37,8 @@ while ~isempty(Q)
 
 end
 
-
-
+% Remove duplicate nodes.
+[V, C, symV] = cleanUpGrid(V, C,symV);
 end
 
 
@@ -78,4 +78,19 @@ function [Q, CT] = updateQue(Q, symV, CT, E, NC, s, t)
            CT{s} = [CT{s}, tNew(i)];
         end
     end
+end
+
+function [V, C, symV] = cleanUpGrid(V, C,symV)
+    % Remove duplicate vertexes
+%     symV = cellfun(@sort, symV,'UniformOutput', false);
+%     symV = cellfun(@(c) num2str(c'), symV,'UniformOutput', false);
+%     [~,IA,IC] = unique(symV);
+%     VO = V;
+%     CO = C;
+%     C = cellfun(@(c) unique(IC(c)'), C,'UniformOutput',false);
+%     V = V(IA,:);
+    [V,IA,IC] = uniquetol(V,50*eps,'byRows',true);
+    symV = symV(IA);
+    C = cellfun(@(c) unique(IC(c))', C,'UniformOutput',false);
+    
 end

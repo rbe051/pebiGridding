@@ -21,7 +21,7 @@ faceDt.Points = [face.Points,zeros(size(face.Points,1),1)];
 faceDt.ConnectivityList = face.ConnectivityList;
 
 % initilize random points
-n = 50;
+n = 10;
 
 pts = rand(n,3);
 pts(:,1) = pts(:,1)*(max(boundary(:,1))-min(boundary(:,1))) + min(boundary(:,1));
@@ -32,9 +32,10 @@ pts(:,3) = pts(:,3)*(max(boundary(:,3))-min(boundary(:,3))) + min(boundary(:,3))
 %plotGrid(G)
 %figure()
 boundary = delaunayTriangulation(boundary);
-[Gc,optPtsc,fc,gc] = optiVoronoi3DClip(pts,boundary,'fault', faceDt);
+[Gc,optPtsc,fc,gc] = optiVoronoi3DClip(pts,boundary,'fault', faceDt,...
+                                       'tol', 1e-6);
 
-plotGrid(G)
+plotGrid(Gc)
 
 %save('unitSquare200')
     

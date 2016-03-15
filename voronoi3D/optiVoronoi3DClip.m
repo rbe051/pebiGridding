@@ -28,7 +28,7 @@ function [G,optPts,f,g] = optiVoronoi3DClip(pts, dt, varargin)
  
 
     opt = struct('density',   @(x) ones(size(x,1),1),...
-                 'fault', struct,                    ...
+                 'fault',     struct,                ...
                  'storedVec', 5,                     ...
                  'tol',       1e-10,                 ...         
                  'maxIt',     1000,                  ...
@@ -50,98 +50,45 @@ end
 
 function [f, g] = objectiveFunc(pts, bndr, fault, rho)
     pts = reshape(pts,3,[])';
-
-    G = restrictedVoronoiDiagram(pts, bndr);
+    bndr2D.ConnectivityList = bndr.freeBoundary;
+    bndr2D.Points = bndr.Points;
+    [G,Gt,symG] = restrictedVoronoiDiagram(pts, bndr);
     G = computeGeometry(G);
     dt = delaunayTriangulation(pts);
     E = dt.edges();
-    [V,C,symV] = clipGrid(dt,fault);
-    [n,x0] = normalPlanes(V,C); %OBS! This is simplified and subject to change.
-    [V,C,cells, symV] = VOuter(V,C,symV,pts,G,dt,n,x0);
+    [Vf,Cf,symF] = clipGrid(dt,fault);
+
+    [n,x0] = normalPlanes(Vf,Cf); %OBS! This is simplified and subject to change.
+    cells = find(~cellfun(@isempty,Cf));
+    [Vb,Cb, symB] = VOuter(cells,symG,pts,Gt,G,dt,n,x0);
+    [V,C,symV,cutT] = mergeNodes(Vf,Cf,symF,fault,Vb,Cb,symB,bndr2D);
+
     [T, triPos, vol] = triang(V,C,cells);
 
-    gv = volumeGrad(V,T,triPos,cells,symV,pts,E,n, fault);
+    gv = volumeGrad(G,V,T,triPos,cells,symV,pts,E,n, cutT)';
     
     intFun = @(x,i) sum(repmat(rho(x),1,3).*(x-repmat(pts(i,:),size(x,1),1)).^2,2);
     
     
     f = sum(polyhedronInt(G,1:G.cells.num, intFun));
+    f = f + vol;
 
     massFun = @(x,i) rho(x);
     masses = polyhedronInt(G,1:G.cells.num,massFun);
     g = reshape((2*repmat(masses,1,3).*(pts - G.cells.centroids))',[],1);
-
+    g = g + 1*gv;
 end
 
 
-function [g] = volumeGrad(V,T,triPos,cells,symV,pts,E,n,fault)
-  g = zeros(size(pts));
-  for i = 1:numel(triPos)-1
-    tri = T(triPos(i):triPos(i+1)-1,:);
-    U = V(tri,:)-repmat(pts(i,:),size(V,1),1);
-    for j = 1:size(tri,1)
-      dvds = zeros(1,3);
-      for k = 1:size(tri,2)
-        Uact = U(tri(j,1:3~=k),:);
-        dvdc = 1/6*cross(Uact(1,:),Uact(2,:),1);
-        dvds = dvds - dvdc;
-        switch sum(symV{tri(j,k)}>0)
-          case 0
-            continue
-          case 1
-            bis = symV{tri(j,k)}(symV{tri(j,k)}>0);
-            %f =  symV{tir(i)}(symV{tri(i)}<0);
-            n2 = [1,1,0]; %OBS This MUST be made general
-            s0 = cells(i);          
-            s2 = E(bis,E(bis,:)~=s0);
 
-            A = [(pts(s2,:)-pts(s0));n;n2];
-            B = [(V(tri(j,k),:)-pts(s0,:)),(pts(s2,:)-V(tri(j,k),:)) ;...
-                 zeros(2,6)];
-          case 2
-            bis = symV{tri(j,k)}(symV{tri(j,k)}>0);
-            s0= cells(i);
-            e = unique(E(bis,:));
-            s = e(e~=s0);
-            s2 = s(1); s3 = s(2);
-            A = [(pts(s2,:)-pts(s0));(pts(s3,:)-pts(s0));n];
-            B = [V(tri(j,k),:)-pts(s0,:),(pts(s2,:)-V(tri(j,k),:)),zeros(1,3);...
-                 V(tri(j,k),:)-pts(s0,:), zeros(1,3), pts(s3,:)-V(tri(j,k),:);...
-                 zeros(1,9)];
-            [e,I] = sort(e);
-            gradC = A\B;
-            gradC = [zeros(3,e(1)-1)     ,gradC(:,3*I(1)-2:3*I(1)),...
-                     zeros(3,e(2)-e(1)-1),gradC(:,3*I(2)-2:3*I(2)),...
-                     zeros(3,size(pts,1)-e(2))];
-          case 3
-            bis = symV{tri(j,k)};
-            s0 = cells(i);
 
-            e = unique(E(bis,:));
-            s = e(e~=s0);
-            s2 = s(1); s3 = s(2); s4 = s(3);
-            A = [(pts(s2,:)-pts(s0));pts(s3,:)-pts(s0);pts(s4,:)-pts(s0)];
-            B = [V(tri(j,k),:)-pts(s0,:),(pts(s2,:)-V(tri(j,k),:)),zeros(1,6);...
-                 V(tri(j,k),:)-pts(s0,:), zeros(1,3), pts(s3,:)-V(tri(j,k),:),zeros(1,3);...
-                 V(tri(j,k),:)-pts(s0,:), zeros(1,6), pts(s4,:)-V(tri(j,k),:)];
-            [e,I] = sort(e);
-            gradC = A\B;
-            gradC = [zeros(3,e(1)-1)     ,gradC(:,3*I(1)-2:3*I(1)),...
-                     zeros(3,e(2)-e(1)-1),gradC(:,3*I(2)-2:3*I(2)),...
-                     zeros(3,e(3)-e(2)-1),gradC(:,3*I(3)-2:3*I(3)),...
-                     zeros(3,size(pts,1)-e(3))];
-          otherwise
-            warning('this should not happen!')
-        end
-        
-        g = g + dvdc*gradC;
-      end
-      g = g + [zeros(1,cells(i)),dvds,zeros(1,size(pts,3)-ce)
-    end
+function [edg] = isOnEdge(dt,f, V)
+  vert = dt.ConnectivityList(f,:);
+  edg = false(size(vert,2),1);
+  for i = 1:size(edg,1)
+    edg(i) = isColinear([dt.Points(vert(i),:);V;dt.Points(vert(1+mod(i,size(edg,1))),:)]);
   end
-
 end
-
 
 function [T,triPos, vol] = triang(V,C,cells)
 T = [];
@@ -176,35 +123,57 @@ n = n/norm(n,2);
 end
 
 
-function [V,C,cells, symV] = VOuter(V,C,symV,s,G,dt,n,x0)
-cells = [];
-for i=1:numel(C)
-    if ~isempty(C{i})
-        faces = G.cells.faces(G.cells.facePos(i):G.cells.facePos(i+1)-1);
-        nodes = arrayfun(@(l,r) G.faces.nodes(l:r), ...
-                                G.faces.nodePos(faces),...
-                                G.faces.nodePos(faces+1)-1, 'un', 0)';
-        nodes = unique(cell2mat(nodes'));
-        outer = sign((bsxfun(@minus,G.nodes.coords(nodes,:),x0(i,:)))*n') ...
-              ~=sign((s(i,:)-x0(i,:))*n');
-        C{i} = [C{i},size(V,1)+1:size(V,1)+sum(outer)];
-        V = [V; G.nodes.coords(nodes(outer),:)];        
-        cells = [cells;i];
-        symV = [symV;findBisector(G,dt.edges,nodes(outer),i)];
-    end
+function [V,C,symV] = VOuter(c,symG,s,Gt,G,dt,n,x0)
+
+symV = {};
+C = cell(G.cells.num,1);
+V = [];
+for i=1:numel(c)
+  faces = G.cells.faces(G.cells.facePos(c(i)):G.cells.facePos(c(i)+1)-1);
+  nodes = arrayfun(@(l,r) G.faces.nodes(l:r), ...
+                          G.faces.nodePos(faces),...
+                          G.faces.nodePos(faces+1)-1, 'un', 0)';
+  nodes = unique(cell2mat(nodes'));
+  outer = sign((bsxfun(@minus,G.nodes.coords(nodes,:),x0(c(i),:)))*n') ...
+        ~=sign((s(c(i),:)-x0(c(i),:))*n');
+  C{c(i)} = size(V,1)+1:size(V,1)+sum(outer);
+  V = [V; G.nodes.coords(nodes(outer),:)];        
+  symV = [symV;findBisector(G,Gt,symG,dt.edges,nodes(outer),c(i))];
 end
+    [V,IA,IC] = uniquetol(V,50*eps,'byRows',true);
+    symV = symV(IA);
+    C = cellfun(@(c) unique(IC(c))', C,'UniformOutput',false);
 end
 
 
+function [V,C,symV,dt] = mergeNodes(Vf,Cf,symF,F,Vb,Cb,symB,B)
+nff = size(F.ConnectivityList,1);
+ncf = numel(Cf);
+V = [Vf;Vb];
+C = cellfun(@(c1,c2) [c1,c2+size(Vf,1)], Cf, Cb,'un',false);
+symV = [symF; cellfun(@(b) b - nff*(1-sign(b))/2, symB,'un',false)];
+[V,IA,IC] = uniquetol(V,50*eps,'byRows',true);
+symV = symV(IA);
+C = cellfun(@(c) unique(IC(c))', C,'UniformOutput',false);
 
-function [b] = findBisector(G,dtEdges,nodes,c)
+dt.Points = [F.Points;B.Points];
+dt.ConnectivityList = [F.ConnectivityList; B.ConnectivityList + size(F.Points,1)];
+
+end
+
+
+function [b] = findBisector(G,Gt, symG,dtEdges,nodes,c)
 
 b = cell(numel(nodes),1);
 for i = 1:numel(nodes)
+  if isempty(symG{nodes(i)})
    [~, face] = max(bsxfun(@gt,G.faces.nodePos,find(G.faces.nodes==nodes(i))'),[],1);
    face = face-1;
    cells = sort(G.faces.neighbors(face,:),2);
    [~,b{i}] = ismember(cells(any(cells==c,2),:), dtEdges,'rows');
+  else
+    b{i} = symG{nodes(i)};
+  end
 end
     
 end
@@ -212,13 +181,118 @@ end
 
 
 
+function [g] = volumeGrad(G,V,T,triPos,cells,symV,pts,E,n,bndr)
+  g = zeros(1,numel(pts));
+  
+  for i = 1:numel(triPos)-1
+    tri = T(triPos(i):triPos(i+1)-1,:);
+    U = V(tri',:)-repmat(pts(i,:), numel(tri),1);
+    for j = 1:size(tri,1)
+      dvds = zeros(1,3);
+      for k = 1:3
+        switch k
+          case 1
+            Uact = U([3*j-1,3*j],:);
+          case 2
+            Uact = U([3*j-2,3*j],:);
+          case 3 
+            Uact = U([3*j-2,3*j-1],:); 
+        end
+        dvdc = 1/6*cross(Uact(1,:),Uact(2,:),2);
+        dvds = dvds - dvdc;
+        switch sum(symV{tri(j,k)}>0)
+          case 0
+            continue
+          case 1
+            bis = symV{tri(j,k)}(symV{tri(j,k)}>0);
+            f =  symV{tri(j,k)}(symV{tri(j,k)}<0);
+
+            n = matrixNormals(bndr,-f(1),V(tri(j,k),:));
+            s0 = cells(i);
+            e = unique(E(bis,:));
+            I = 1:numel(e);
+            s0Id = e==s0;
+            I = [I(s0Id), I(~s0Id)];
+            s2 = e(~s0Id);
+  
+            A = [(pts(s2,:)-pts(s0));n];
+            B = [(V(tri(j,k),:)-pts(s0,:)),(pts(s2,:)-V(tri(j,k),:)) ;...
+                 zeros(2,6)];
+            gradC = A\B;
+            gradC = [zeros(3,3*(e(1)-1))     , gradC(:,3*I(1)-2:3*I(1)),...
+                     zeros(3,3*(e(2)-e(1)-1)), gradC(:,3*I(2)-2:3*I(2)),...
+                     zeros(3,numel(pts)-3*e(2))];
+          case 2
+            bis = symV{tri(j,k)}(symV{tri(j,k)}>0);
+            f =  symV{tri(j,k)}(symV{tri(j,k)}<0);
+
+            nodes = bndr.Points(bndr.ConnectivityList(-f,:),:);
+            n = cross(nodes(2,:)-nodes(1,:),nodes(3,:)-nodes(1,:));
+            n = n/norm(n,2);
+            s0= cells(i);
+            e = unique(E(bis,:));
+            I = 1:numel(e);
+            s0Id = e==s0;
+            I = [I(s0Id), I(~s0Id)];
+            s = e(~s0Id);
+            s2 = s(1); s3 = s(2);
+            A = [(pts(s2,:)-pts(s0));(pts(s3,:)-pts(s0));n(1,:)];
+            B = [V(tri(j,k),:)-pts(s0,:),(pts(s2,:)-V(tri(j,k),:)),zeros(1,3);...
+                 V(tri(j,k),:)-pts(s0,:), zeros(1,3), pts(s3,:)-V(tri(j,k),:);...
+                 zeros(1,9)];
+            [e,I] = sort(e);
+            gradC = A\B;
+            gradC = [zeros(3,3*(e(1)-1))     ,gradC(:,3*I(1)-2:3*I(1)),...
+                     zeros(3,3*(e(2)-e(1)-1)),gradC(:,3*I(2)-2:3*I(2)),...
+                     zeros(3,3*(e(3)-e(2)-1)),gradC(:,3*I(3)-2:3*I(3)),...
+                     zeros(3,numel(pts)-3*e(3))];
+          case 3
+            bis = symV{tri(j,k)};
+            s0 = cells(i);
+
+            e = unique(E(bis,:));
+            I = 1:numel(e);
+            s0Id = e==s0;
+            I = [I(s0Id), I(~s0Id)];
+            s = e(~s0Id);
+            s2 = s(1); s3 = s(2); s4 = s(3);
+            A = [(pts(s2,:)-pts(s0));pts(s3,:)-pts(s0);pts(s4,:)-pts(s0)];
+            B = [V(tri(j,k),:)-pts(s0,:),(pts(s2,:)-V(tri(j,k),:)),zeros(1,6);...
+                 V(tri(j,k),:)-pts(s0,:), zeros(1,3), pts(s3,:)-V(tri(j,k),:),zeros(1,3);...
+                 V(tri(j,k),:)-pts(s0,:), zeros(1,6), pts(s4,:)-V(tri(j,k),:)];
+
+            gradC = A\B;
+            gradC = [zeros(3,3*(e(1)-1))     ,gradC(:,3*I(1)-2:3*I(1)),...
+                     zeros(3,3*(e(2)-e(1)-1)),gradC(:,3*I(2)-2:3*I(2)),...
+                     zeros(3,3*(e(3)-e(2)-1)),gradC(:,3*I(3)-2:3*I(3)),...
+                     zeros(3,3*(e(4)-e(3)-1)),gradC(:,3*I(4)-2:3*I(4)),...
+                     zeros(3,numel(pts)-3*e(4))];
+          otherwise
+            warning('this should not happen!')
+        end
+        
+        g = g + dvdc*gradC;
+      end
+      g = g + [zeros(1,3*(cells(i)-1)),dvds,zeros(1,numel(pts)-3*cells(i))];
+    end
+  end
+
+end
 
 
 
 
 
+function n = matrixNormals(bndr,f,V)
+  edg = isOnEdge(bndr,f,V);
+  nodes = bndr.Points(bndr.ConnectivityList(f,:),:);
+  vec = nodes(edg,:)-edg(circshift(edg,[1,0]),:);
+  vec = vec/norm(vec,2);
+  n = cross(nodes(2,:)-nodes(1,:),nodes(3,:)-nodes(1,:));
+  n = n/norm(n,2);
+  n(2,:) = cross(n,vec);
 
-
+end
 
 
 
