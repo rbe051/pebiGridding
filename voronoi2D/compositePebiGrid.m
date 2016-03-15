@@ -187,14 +187,16 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
         
     faultType = faultType(~removed);
     
-    if opt.fullFaultEdge    
+    if opt.fullFaultEdge
+        [faultCenter, faultRadius] = removeFaultCircles(faultCenter, ...
+                                                        faultRadius,...
+                                                        faultPos,...
+                                                        faultToCenter,...
+                                                        removed);
         [Pts, removed, ~, ~] = enforceSufficientFaultCondition(Pts, ...
                                                                faultType,...
-                                                               faultPos, ...
-                                                               faultToCenter,...
                                                                faultCenter,...
-                                                               faultRadius,...
-                                                               removed);
+                                                               faultRadius);
         % If you whish to use the updated faultCenter and faultRadius later 
         % you can retrive them by replacing the ~ outputs.
         
@@ -221,21 +223,16 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 end
 
 
-function [Pts, removed, CC, CR] = ...
-            enforceSufficientFaultCondition(Pts, isFault, faultPos, ... 
-                                            faultToCenter, CC,      ...
-                                            CR, removed)
-    assert(size(CC,1)==size(CR,1));
-    assert(size(isFault,1)==size(Pts,1));
-
+function [CC, CR] = removeFaultCircles(CC, CR,faultPos,faultToCenter, remFaultPts)
+    assert(size(CC,1)==size(CR,1));    
     % Create a index map of the points
-    faultIndex = (1:size(Pts,1))';
-    remove = zeros(size(CC,1),1);
+    faultIndex = (1:size(faultToCenter,1))';
+    remCirc = zeros(size(CC,1),1);
     for i = 1:size(faultPos,1)-1 %iterate over all faults
         % Find removed fault points from current fault
         faultPts = faultIndex(faultPos(i):faultPos(i+1)-1);
-        isRemovedFaults = false(size(Pts,1),1);
-        isRemovedFaults(faultPts) = removed(faultPts);
+        isRemovedFaults = false(size(faultToCenter,1),1);
+        isRemovedFaults(faultPts) = remFaultPts(faultPts);
         % Find the first and last circle in curren fault
         Cfrom  = faultToCenter(faultPos(i));
         Cto = faultToCenter(faultPos(i+1)-1)+1;
@@ -251,11 +248,18 @@ function [Pts, removed, CC, CR] = ...
         toRemove1(circleToRemove1) = true;
         toRemove2(circleToRemove2) = true;
         toRemove = and(toRemove1, toRemove2);
-        remove = remove + toRemove;
+        remCirc = remCirc + toRemove;
     end
-    remove = logical(remove);
-    CC = CC(~remove,:);
-    CR = CR(~remove);    
+    remCirc = logical(remCirc);
+    CC = CC(~remCirc,:);
+    CR = CR(~remCirc);    
+
+end
+
+function [Pts, removed, CC, CR] = ...
+            enforceSufficientFaultCondition(Pts, isFault, CC, CR)
+
+    assert(size(isFault,1)==size(Pts,1));
 
     nc = size(CC,1);
     np = size(Pts,1);

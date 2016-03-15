@@ -21,7 +21,7 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    %% Load options
+    % Load options
     fh  = @(x) fracDs*constFunc(x);
     opt = struct('distFunc', fh);
     opt = merge_options(opt, varargin{:});
@@ -29,10 +29,10 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     assert(0.5<circleFactor && circleFactor<1)
     assert(size(faultLine,1)>1 && size(faultLine,2)==2);
     
-    %% interpolate fault line to get desired grid spacing. 
+    % interpolate fault line to get desired grid spacing. 
     circCenter = interFaultLine(faultLine, fh, fracDs);
     
-    %% Create fault points
+    % Create fault points
     numOfFracPts = size(circCenter,1)-1;
     if numOfFracPts <= 0
         Pts = [];
