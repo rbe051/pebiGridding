@@ -14,7 +14,7 @@ function G = voronoi2mrst(V, C, aux, name)
     % Set number of cells
     G.cells.num  = numel(cell2Node)-1;
     
-    % Find half faces
+    %% Find half faces
     facePos    = ones(G.cells.num+1,1);
     hf         = [];      
     hf2NodePos = [1]; 
@@ -106,9 +106,12 @@ function [newHull, nodePos] = remParFaces(V, hull)
     nodePos = [1];
     % Calculate normals
     n       = calcNormals(hull, V);
-    e = any(isnan(n),2);
-    n = n(~e,:);
-    hull = hull(~e,:);
+
+% This might be necesary
+%    e = any(isnan(n),2);
+%    n = n(~e,:);
+%    hull = hull(~e,:);
+
 %     a = patch('Vertices', V, 'faces', hull,'facecolor','y','facealpha',0.1);
 %     hold on
 

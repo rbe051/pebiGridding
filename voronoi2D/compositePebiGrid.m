@@ -33,10 +33,8 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     %
     % Returns:
     %   G                   A mrst grid structure. 
-    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %% Written by Runar Lie Berge (runarlb@stud.ntnu.no)
-    %% January 2016
+    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
 
@@ -108,7 +106,7 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     lastCCid = 0;
     for i = 1:nFault + nWell  % create well points
         if isWell(i)
-            wellLine = linesToGrid{i};
+            wellLine      = linesToGrid{i};
             [wellPts,wellSpace] = createWellGridPoints(wellLine, wellGridSize);
             
             np            = size(wellPts,1);
@@ -122,7 +120,7 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     end
     for i = 1:nFault + nWell % create fault points
         if ~isWell(i)
-            fracLine = linesToGrid{i};    
+            fracLine      = linesToGrid{i};    
             [faultPts, fracSpace, CC, CR, CCid] =                       ...
                                     createFaultGridPoints(fracLine,     ... 
                                                           faultGridSize,...

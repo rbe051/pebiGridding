@@ -57,7 +57,7 @@ function [p,t, sorting]=distmesh2d(fd,fh,h0,bbox,pfix,varargin)
 %   Copyright (C) 2004-2012 Per-Olof Persson. See COPYRIGHT.TXT for details.
 
 dptol=.001; ttol=.1; Fscale=1.2; deltat=.2; geps=.001*h0; deps=sqrt(eps)*h0;
-densityctrlfreq=30;
+densityctrlfreq=30; maxIt = 2000;
 
 % 1. Create initial distribution in bounding box (equilateral triangles)
 [x,y]=meshgrid(bbox(1,1):h0:bbox(2,1),bbox(1,2):h0*sqrt(3)/2:bbox(2,2));
@@ -76,7 +76,7 @@ N=size(p,1);                                         % Number of points N
 count=0;
 pold=inf;                                            % For first iteration
 clf,view(2),axis equal,axis off
-while 1 && count<2000
+while 1 && count<maxIt
   count=count+1;
   % 3. Retriangulation by the Delaunay algorithm
   if max(sqrt(sum((p-pold).^2,2))/h0)>ttol           % Any large movement?
@@ -122,8 +122,8 @@ while 1 && count<2000
   if max(sqrt(sum(deltat*Ftot(d<-geps,:).^2,2))/h0)<dptol, break; end
 end
 
-if count == 1000
-    warning('DistMesh did not converge in 2000 iterations.')
+if count == maxIt
+    warning('DistMesh did not converge in maximum number of iterations.')
 end
 
 % Clean up and plot final mesh

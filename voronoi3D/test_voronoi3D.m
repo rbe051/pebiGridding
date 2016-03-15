@@ -1,4 +1,4 @@
-clear; close all
+clc; clear; close all
 
 
 % Sett the convex boundary
@@ -19,7 +19,7 @@ pts=    [-0.5443    0.4773    0.2519;...
           0.1493    0.3328    0.7815;...
           0.6904   -0.8330    0.9646];...
 %pts = [0,0,0;0.5,0.5,0.5];
-    
+
 % Generate voronoi grid
 G = voronoi3D(pts, boundary);
 

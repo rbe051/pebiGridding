@@ -18,8 +18,7 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     % circRadius        The radius of the above circles
     % CCid              Mapping from fault points to circles.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %% Runar Lie Berge (runarlb@stud.ntnu.no)
-    %% January 2016
+    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     %% Load options
@@ -144,7 +143,7 @@ function [d] = distAlLine(line, p)
         lineEnd = repmat(line(i+1,:), size(p,1),1);
         distA = eucDist(lineStart, p) + eucDist(p,lineEnd);
         distB = eucDist(lineStart,lineEnd);
-        indx  = find(abs(distA - distB) < TOL); %Find points on line segment
+        indx  = find(abs(distA - distB) < TOL*eucDist(lineStart,lineEnd));
         if numel(indx)==0 
             jointDist = jointDist + eucDist(line(i,:), line(i+1,:));
             continue
