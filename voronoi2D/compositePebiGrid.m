@@ -60,12 +60,13 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     
     % Load faults and Wells
     faultLines  = opt.faultLines;
+    [faultLines, isCut] = splitFaults(faultLines);
     wellLines   = opt.wellLines;
     nFault      = numel(faultLines);
     nWell       = numel(wellLines);
     linesToGrid = [wellLines, faultLines{:}];
     isWell      = [true(nWell,1); false(nFault,1)];
-    
+    isCut       = [zeros(nWell,1); isCut];
     % Set priority index
     priOrder = opt.priOrder;
     if isempty(priOrder)
@@ -75,8 +76,8 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     end
     % Sort faults and wells in priority
     linesToGrid = linesToGrid(priOrder);
-    isWell = isWell(priOrder);
-    
+    isWell      = isWell(priOrder);
+    isCut       = isCut(priOrder);
     
     %% Test input
     assert(resGridSize>0);
@@ -98,6 +99,7 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     faultCenter   = [];         % Center of circle used to create fault pts
     faultRadius   = [];         % Radius of the circle
     faultToCenter = [];         % Map from a fault to the circle center
+    centerToFault = [];         % Map from the circle center to a fault  
     faultPos      = [];         % Start and end index of a fault in Pts
 
 
@@ -115,16 +117,18 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
             priIndex      = [priIndex; (2+i)*ones(np,1)];
             gridSpacing   = [gridSpacing; wellSpace];
             Pts           = [Pts; wellPts];
-            faultToCenter = [faultToCenter; zeros(size(wellPts,1),1)];
+            faultToCenter = [faultToCenter; zeros(size(wellPts,1),2)];
         end
     end
+
     for i = 1:nFault + nWell % create fault points
         if ~isWell(i)
             fracLine      = linesToGrid{i};    
-            [faultPts, fracSpace, CC, CR, CCid] =                       ...
+            [faultPts, fracSpace, CC, CR, f2c, c2f] =                  ...
                                     createFaultGridPoints(fracLine,     ... 
                                                           faultGridSize,...
-                                                          circleFactor);
+                                                          circleFactor, ...
+                                                          isCut(i));
             nl = size(faultPts,1)/2;
             if nl==0 % No fault points created
                 continue
@@ -143,12 +147,14 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
             Pts           = [Pts;faultPts];
             faultCenter   = [faultCenter; CC];
             faultRadius   = [faultRadius; CR]; 
-            faultToCenter = [faultToCenter;lastCCid+CCid];
-            lastCCid      = faultToCenter(end)+1;
-
+            faultToCenter = [faultToCenter;f2c + size(centerToFault,1)];
+            centerToFault = [centerToFault;c2f + size(Pts,1)-nl*2];
         end
     end
     
+    [Pts, faultRadius] = fixIntersections(Pts, faultType, faultCenter, ...
+                                          faultRadius, faultToCenter,  ...
+                                          centerToFault);
 
     %% Create reservoir grid
     dx = pdims(1)/ceil(pdims(1)/resGridSize);
@@ -183,11 +189,12 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     Pts = [Pts;resPts];
     
     %% Remove Conflic Points
-    [Pts, wellType, removed] = removeConflictPoints(Pts, gridSpacing, priIndex, wellType);
-        
-    faultType = faultType(~removed);
-    
-    if opt.fullFaultEdge
+    [~, ~, removed] = removeConflictPoints(Pts, gridSpacing, priIndex, wellType);
+      
+    Pts = Pts(~removed|faultType,:);
+    wellType = wellType(~removed|faultType,:);
+    faultType = faultType(~removed|faultType,:);
+    if false %opt.fullFaultEdge
         [faultCenter, faultRadius] = removeFaultCircles(faultCenter, ...
                                                         faultRadius,...
                                                         faultPos,...
@@ -206,10 +213,23 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     
     
     %% Create Grid
+    Pts = uniquetol(Pts,50*eps,'byRows',true);
     Tri = delaunayTriangulation(Pts);
     G = triangleGrid(Pts, Tri.ConnectivityList);
     G = pebi(G);
-
+    subplot(1,2,1)
+    plotGrid(G,'facecolor','none')
+    axis equal off
+    subplot(1,2,2)
+    plotGrid(G,'facecolor','none')
+    axis equal off
+    hold on
+    for i = 1:numel(faultLines)
+      l = faultLines{i};
+      plot(l(:,1),l(:,2),'r')
+    end
+    
+    
     % label fault faces.
     N = G.faces.neighbors + 1;
     faultType = [0; faultType];
@@ -256,19 +276,173 @@ function [CC, CR] = removeFaultCircles(CC, CR,faultPos,faultToCenter, remFaultPt
 
 end
 
-function [Pts, removed, CC, CR] = ...
-            enforceSufficientFaultCondition(Pts, isFault, CC, CR)
 
+
+function [splitLines,isCut] = splitFaults(faultLines)
+TOL = 20*eps;
+splitLines = cell(0);
+isCut      = [];
+for i = 1:numel(faultLines)
+  % Pick lines
+  l1 = faultLines{i};
+  l2 = faultLines([1:i-1,i+1:end]);
+  linePos = cumsum([1,cellfun(@(c) size(c,1),l2)]);
+  keep = true(linePos(end)-1,1);
+  keep(linePos) = false;
+  l2 = cell2mat(l2');
+  l1 = [l1(1:end-1,:),l1(2:end,  :)];
+  l2 = [l2(1:end-1,:),l2(2:end,  :)];
+  l2 = l2(keep(2:end-1),:);
+  % Compute intersections
+  out = lineSegmentIntersect(l1,l2);
+  [k,j] = find(out.intAdjacencyMatrix');
+  newPts = [diag(out.intMatrixX(j,k)), diag(out.intMatrixY(j,k))];
+  newPts = repmat(newPts',2,1);
+  newPts = reshape(newPts(:),2,[])';
+  id = repmat(j',2,1);
+  id = id(:);
+  % Remove duplicates
+  pts = insertVec(faultLines{i},newPts,id+1);
+  newLine =  mat2cell(pts,diff([0;j + 2*(1:numel(j))'-1;size(pts,1)]),2)';
+  arg = {'rows';'stable'};
+  arg = repmat(arg,size(newLine));
+  [newLine] = cellfun(@unique, newLine,arg(1,:),arg(2,:),'UniformOutput',false);
+  numPts = cellfun(@(c) size(c,1),newLine);
+  newLine = newLine(numPts>1);
+  startInt = numPts(1)==1;
+  endInt   = numPts(end)==1;
+ 
+  % Split line
+  splitLines = [splitLines,newLine];    
+  isCut      = [isCut;...
+    [ones(numel(newLine)-1,1);endInt]+2*[startInt;ones(numel(newLine)-1,1)]];
+  
+  for i = 1:numel(newLine)
+    plot(newLine{i}(:,1),newLine{i}(:,2))
+    hold on
+  end
+end
+
+end
+
+function C = insertVec(A,B,id)
+C = zeros(size(A)+[size(B,1),0])+nan;
+C(id + (0:numel(id)-1)',:) = B;
+C(isnan(C)) = A;
+end
+
+
+function [I] = conflictCircles(Pts, isFault, CC, CR)
+    TOL = 10*eps;
     assert(size(isFault,1)==size(Pts,1));
 
     nc = size(CC,1);
     np = size(Pts,1);
     removed = zeros(np,1);
     CRSqr = CR.^2;
+    I = cell(numel(CR),1);
     for i = 1:nc
         distSqr = sum((repmat(CC(i,:),np,1)-Pts).^2,2);
-        removed = removed + and(distSqr<CRSqr(i), ~isFault);
+        I{i} = find(distSqr<CRSqr(i)-10*eps);
     end                
-    removed = logical(removed);
-    Pts = Pts(~removed,:);
 end
+
+
+function [Pts, CR] = fixIntersections(Pts, isFault, CC, CR, f2c, c2f)
+  TOL = 10*eps;
+  
+  I = conflictCircles(Pts, isFault, CC, CR);
+  circ = find(~cellfun(@isempty,I));
+  rem  = cellfun(@numel, I(circ))>1;
+  circ = circ(~rem);
+  circ = [circ, f2c(vertcat(I{circ}))];%cellfun(@(c) f2c(c),I(circ))]; % strange if several conflict circles
+  circ = [circ,circ(:,2)+1];
+  
+  shared = 2*all(abs(CC(circ(:,2),:)-CC(circ(:,1)+1,:))<TOL,2) ...
+          +3*all(abs(CC(circ(:,3),:)-CC(circ(:,1)-1,:))<TOL,2);
+  keep = find(shared);
+  circ = circ(keep,:);
+  swap = shared(keep)==2;
+  circ(swap,:) = [circ(swap,1),circ(swap,3),circ(swap,2)];
+  
+  % Calculate new radiuses
+  line = [CC(circ(:,3),:),reshape(mean(reshape(CC(circ(:,1:2)',:),2,[]),1),[],2)];
+  int = lineCircInt(CC(circ(:,3),:),CR(circ(:,3)), line);
+  CR(circ(:,1)) = sqrt(sum((CC(circ(:,1),:)-int).^2,2));
+  
+  % Calculate new Pts
+  fId = c2f(circ(:,1:2),:);
+  fId = unique(fId(:));
+  fId = fId(~isnan(fId));
+  
+  c = circ(:,2);
+  p = circCircInt(CC(c(:),:), CR(c(:)), ...
+                           [CC(c(:)-1,:),CC(c(:)+1,:)],...
+                           [CR(c(:)-1)  ,CR(c(:)+1)]);
+  
+  Pts(fId,:) = p
+end
+
+
+function [p] = circCircInt(CC1, CR1, CC2,CR2)
+
+CC1 = repmat(CC1, 1,size(CC2,2)/size(CC1,2));
+CR1 = repmat(CR1, 1,size(CR2,2)/size(CR1,2));
+CC1 = reshape(CC1',2,[])';
+CC2 = reshape(CC2',2,[])';
+CR1 = reshape(CR1',1,[])';
+CR2 = reshape(CR2',1,[])';
+
+d = sqrt(sum((CC1 - CC2).^2,2));
+bisectPnt = (d.^2 - CR2.^2 + CR1.^2)...
+                ./(2*d);
+faultOffset = sqrt(CR1.^2 - bisectPnt.^2);
+n1 = (CC2-CC1)./repmat(d,1,2); %Unit vector
+n2 = [-n1(:, 2), n1(:,1)];     %Unit normal
+
+% Set fault points on left and right side of fault
+left   = CC1 + bsxfun(@times, bisectPnt, n1)  ...
+       + bsxfun(@times, faultOffset, n2);
+right  = CC1 + bsxfun(@times, bisectPnt, n1)  ...
+       - bsxfun(@times, faultOffset, n2);
+
+% Put together result
+p = [right;left];
+
+
+end
+
+
+
+function [p] = lineCircInt(CC, CR, line)
+p = nan(size(CC,1),2);
+t = zeros(size(CC,1),1);
+vec = line(:,3:4) - line(:,1:2);
+c2l = line(:,1:2) - CC;
+a   = dot(vec,vec,2);
+b   = 2*dot(c2l,vec,2);
+c = dot(c2l,c2l,2) - dot(CR,CR,2);
+
+dist = (b.*b - 4*a.*c);
+lineHit = dist>=0;
+distSqr = sqrt(dist(lineHit));
+
+%t(:,1) = -b - distSqr./(2*a); % This is intersection on wrong side.
+t = -b + distSqr./(2*a);
+
+p = bsxfun(@times,vec,t) + line(:,1:2);
+
+
+end
+
+
+
+
+
+
+
+
+
+
+
+

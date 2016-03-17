@@ -1,5 +1,5 @@
-function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
-    createFaultGridPoints(faultLine, fracDs, circleFactor, varargin) 
+function [Pts, gridSpacing, circCenter, circRadius, f2c, c2f] = ...
+    createFaultGridPoints(faultLine, fracDs, circleFactor, isCut, varargin) 
     % Places fault grid points on both sides of a fault
     % Arguments:
     %   faultLine       k*n array of poits, [x,y] describing the fault
@@ -11,12 +11,13 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     %   distFunc        Function setting the grid spacing
     %
     % Returns:
-    % Pts               Fault points
-    % gridSpacing       Grid spacing for each fault point
-    % circCenter        Center of each circle used for creating the fault
+    %   Pts             Fault points
+    %   gridSpacing     Grid spacing for each fault point
+    %   circCenter      Center of each circle used for creating the fault
     %                   points
-    % circRadius        The radius of the above circles
-    % CCid              Mapping from fault points to circles.
+    %   circRadius      The radius of the above circles
+    %   f2c             Mapping from fault points to circles.
+    %   c2f             Mapping from circles to fault points
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -31,13 +32,20 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     
     % interpolate fault line to get desired grid spacing. 
     circCenter = interFaultLine(faultLine, fh, fracDs);
-    
-    % Create fault points
     numOfFracPts = size(circCenter,1)-1;
-    if numOfFracPts <= 0
-        Pts = [];
+    
+    % Test faultLine
+    if numOfFracPts == 1
+      d = sqrt(sum((circCenter(2,:)-circCenter(1,:)).^2, 2));
+      if d < 0.8*fh((circCenter(2,:)+circCenter(1,:))/2);
+        Pts         = [];
         gridSpacing = [];
+        circCenter  = [];
+        circRadius  = [];
+        f2c         = [];
+        c2f         = [];
         return
+      end
     end
     % Calculate the line lenth and circle radiuses. If you experience
     % imaginary faultOffset you might want to try the max lineLength
@@ -46,7 +54,17 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
     circRadius = circleFactor*[lineLength(1); ...
                               (lineLength(1:end-1) + lineLength(2:end))/2; ...
                                lineLength(end)];
-                           
+                             
+    switch isCut
+      case 1
+        circRadius(end) = fh(circCenter(end,:))*circleFactor;
+      case 2
+        circRadius(1)   = fh(circCenter(1,:))*circleFactor;
+      case 3
+        circRadius(1)   = fh(circCenter(1,:))*circleFactor;
+        circRadius(end) = fh(circCenter(end,:))*circleFactor;
+    end
+    
     % Calculate the crossing of the circles
     bisectPnt = (lineLength.^2 - circRadius(2:end).^2 + circRadius(1:end-1).^2)...
                 ./(2*lineLength);
@@ -62,8 +80,13 @@ function [Pts, gridSpacing, circCenter, circRadius, CCid] = ...
          
     % Put together result
     Pts = [right;left];
-    CCid = [1:size(left,1),1:size(right,1)]';
+    f2c = [(1:size(left,1))';(1:size(right,1))'];
+    nf  = size(left,1);
+    c2f = [   nan,          nan,         1,       nf+1;...
+           (1:nf-1)', (nf+1:2*nf-1)', (2:nf)', (nf+2:2*nf)';...
+              nf,           2*nf,       nan,     nan];
     gridSpacing = 2*[faultOffset;faultOffset];
+    
 end
 
 
@@ -125,7 +148,7 @@ end
 
 
 function [d] = distAlLine(line, p)
-    % Calculates the distace between consecutive interpolation points along
+    % Calculates the distace between consecutive interpolation points along % Put together result
     % line
     % Arguments:
     %   line    line that is interpolated
