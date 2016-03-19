@@ -151,10 +151,16 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
             centerToFault = [centerToFault;c2f + size(Pts,1)-nl*2];
         end
     end
+    % Remove duplicate fault Centers
+    [faultCenter, IA, IC] = uniquetol(faultCenter,'byRows',true);
+    faultRadius = faultRadius(IA);
+    centerToFault = centerToFault(IA,:);
+    faultToCenter = IC(faultToCenter);
     
+    % Merge intersections
     [Pts, faultRadius] = fixIntersections(Pts, faultType, faultCenter, ...
-                                          faultRadius, faultToCenter,  ...
-                                          centerToFault);
+                                         faultRadius, faultToCenter,  ...
+                                         centerToFault);
 
     %% Create reservoir grid
     dx = pdims(1)/ceil(pdims(1)/resGridSize);
@@ -350,37 +356,61 @@ end
 
 function [Pts, CR] = fixIntersections(Pts, isFault, CC, CR, f2c, c2f)
   TOL = 10*eps;
-  
+ 
+  % Find conflict circles
   I = conflictCircles(Pts, isFault, CC, CR);
-  circ = find(~cellfun(@isempty,I));
-  rem  = cellfun(@numel, I(circ))>1;
-  circ = circ(~rem);
-  circ = [circ, f2c(vertcat(I{circ}))];%cellfun(@(c) f2c(c),I(circ))]; % strange if several conflict circles
-  circ = [circ,circ(:,2)+1];
   
-  shared = 2*all(abs(CC(circ(:,2),:)-CC(circ(:,1)+1,:))<TOL,2) ...
-          +3*all(abs(CC(circ(:,3),:)-CC(circ(:,1)-1,:))<TOL,2);
+  circ = find(~cellfun(@isempty,I));
+  circNum = cellfun(@numel, I(circ));
+  id = zeros(sum(circNum),1);
+  circPos = cumsum([1; circNum]);
+  id(circPos(1:end-1)) = 1;
+  id = cumsum(id);
+  %rem  = cellfun(@numel, I(circ))>1; % Ignore these cases
+  %circ = circ(~rem);
+  
+  circ = [circ(id), f2c(vertcat(I{circ}),:)]; 
+  
+  % Find shared circle
+  neigh = findNeighbors(circ(:,1),c2f, f2c); % OBS assumes specific ordering on faults
+  
+  shared = 2*any(bsxfun(@eq, neigh, circ(:,2)),2) ...
+          +3*any(bsxfun(@eq, neigh, circ(:,3)),2);
   keep = find(shared);
   circ = circ(keep,:);
   swap = shared(keep)==2;
   circ(swap,:) = [circ(swap,1),circ(swap,3),circ(swap,2)];
-  
+  [~,IA] = unique(sort(circ,2),'rows');
+  circ = circ(IA,:);
+
   % Calculate new radiuses
   line = [CC(circ(:,3),:),reshape(mean(reshape(CC(circ(:,1:2)',:),2,[]),1),[],2)];
   int = lineCircInt(CC(circ(:,3),:),CR(circ(:,3)), line);
-  CR(circ(:,1)) = sqrt(sum((CC(circ(:,1),:)-int).^2,2));
-  
+  % set radius to smallest
+  R = sqrt(sum((CC(circ(:,1:2),:)-[int;int]).^2,2));
+  for i = 1:numel(R)-1
+    CR(circ(i)) = min(CR(circ(i)),R(i));
+  end
+  % Remove duplicates
+  c = unique(circ(:,1:2));
+      
   % Calculate new Pts
-  fId = c2f(circ(:,1:2),:);
+  fId = c2f(c,:);
   fId = unique(fId(:));
   fId = fId(~isnan(fId));
   
-  c = circ(:,2);
-  p = circCircInt(CC(c(:),:), CR(c(:)), ...
-                           [CC(c(:)-1,:),CC(c(:)+1,:)],...
-                           [CR(c(:)-1)  ,CR(c(:)+1)]);
+  neigh = findNeighbors(c(:), c2f, f2c); % I do this twice. hmm
+  p = circCircInt(CC(c(:),:), CR(c(:)),...
+                 reshape(CC(neigh',:)',4,[])',reshape(CR(neigh),[],2));
   
-  Pts(fId,:) = p
+  Pts(fId,:) = p;
+end
+
+function [neigh] = findNeighbors(c, c2f, f2c)
+%OBS does not work on end points
+pId   = c2f(c,[1,3]);
+neigh = reshape(f2c(pId',:)',4,[])';
+neigh = reshape(neigh(bsxfun(@ne, neigh,c)),[],2);
 end
 
 
