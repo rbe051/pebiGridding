@@ -1,4 +1,4 @@
-function [Pts, gridSpacing, circCenter, circRadius, f2c, c2f] = ...
+function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ...
     createFaultGridPoints(faultLine, fracDs, circleFactor, isCut, varargin) 
     % Places fault grid points on both sides of a fault
     % Arguments:
@@ -80,12 +80,15 @@ function [Pts, gridSpacing, circCenter, circRadius, f2c, c2f] = ...
          
     % Put together result
     Pts = [right;left];
-    f2c = [(1:size(left,1))' ,(2:size(left,1)+1)';...
-           (1:size(right,1))',(2:size(right,1)+1)'];
+    f2c = cumsum(accumarray((1:2:size(Pts,1)+1)',1));
+    f2c = repmat(f2c(2:end),2,1); 
+    f2cPos = (1:2:numel(f2c)+1)';
     nf  = size(left,1);
     c2f = [   nan,          nan,         1,       nf+1;...
            (1:nf-1)', (nf+1:2*nf-1)', (2:nf)', (nf+2:2*nf)';...
-              nf,           2*nf,       nan,     nan];
+              nf,           2*nf,       nan,     nan]';
+    c2f = c2f(3:end-2)';
+    c2fPos = [1;(3:4:numel(c2f))';numel(c2f)+1];
     gridSpacing = 2*[faultOffset;faultOffset];
     
 end

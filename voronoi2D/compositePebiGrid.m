@@ -98,8 +98,10 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     Pts           = [];         % Points
     faultCenter   = [];         % Center of circle used to create fault pts
     faultRadius   = [];         % Radius of the circle
-    faultToCenter = [];         % Map from a fault to the circle center
-    centerToFault = [];         % Map from the circle center to a fault  
+    fault2Center  = [];         % Map from a fault to the circle center
+    f2cPos        = [];
+    center2Fault  = [];         % Map from the circle center to a fault  
+    c2fPos        = [];
     faultPos      = [];         % Start and end index of a fault in Pts
 
 
@@ -117,14 +119,14 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
             priIndex      = [priIndex; (2+i)*ones(np,1)];
             gridSpacing   = [gridSpacing; wellSpace];
             Pts           = [Pts; wellPts];
-            faultToCenter = [faultToCenter; zeros(size(wellPts,1),2)];
+            fault2Center = [fault2Center; zeros(size(wellPts,1),2)];
         end
     end
 
     for i = 1:nFault + nWell % create fault points
         if ~isWell(i)
             fracLine      = linesToGrid{i};    
-            [faultPts, fracSpace, CC, CR, f2c, c2f] =                  ...
+            [faultPts, fracSpace, CC, CR, f2c,cPos, c2f,fPos] =                  ...
                                     createFaultGridPoints(fracLine,     ... 
                                                           faultGridSize,...
                                                           circleFactor, ...
@@ -141,26 +143,36 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
             priIndex      = [priIndex; (2+i)*ones(2*nl,1)];
             gridSpacing   = [gridSpacing;fracSpace];
             if isempty(faultPos)
-                faultPos = size(Pts,1) + 1;
+                faultPos  = size(Pts,1) + 1;
+                c2fPos    = size(Pts,1) + 1;
+                f2cPos    = size(Pts,1) + 1;
             end
             faultPos      = [faultPos; size(Pts,1)+1+size(faultPts,1)];
             Pts           = [Pts;faultPts];
             faultCenter   = [faultCenter; CC];
             faultRadius   = [faultRadius; CR]; 
-            faultToCenter = [faultToCenter;f2c + size(centerToFault,1)];
-            centerToFault = [centerToFault;c2f + size(Pts,1)-nl*2];
+            fault2Center  = [fault2Center;f2c + size(c2fPos,1)-1];
+            f2cPos        = [f2cPos; cPos(2:end) + f2cPos(end)-1];
+            center2Fault  = [center2Fault;c2f + size(Pts,1)-nl*2];
+            c2fPos        = [c2fPos; fPos(2:end) + c2fPos(end)-1];
         end
     end
     % Remove duplicate fault Centers
     [faultCenter, IA, IC] = uniquetol(faultCenter,'byRows',true);
     faultRadius = faultRadius(IA);
-    centerToFault = centerToFault(IA,:);
-    faultToCenter = IC(faultToCenter);
+    [~,I] = sort(IC);
+    map = [c2fPos(1:end-1), c2fPos(2:end)-1];
+    map = map(I,:);
+    map = arrayfun(@colon, map(:,1),map(:,2),'uniformOutput',false);
+    center2Fault = center2Fault(cell2mat(map'));
+    fNum = diff(c2fPos);
+    c2fPos = cumsum([1; accumarray(IC,fNum)]);
+    fault2Center = IC(fault2Center);
     
     % Merge intersections
     [Pts, faultRadius] = fixIntersections(Pts, faultType, faultCenter, ...
-                                         faultRadius, faultToCenter,  ...
-                                         centerToFault);
+                                         faultRadius, fault2Center, f2cPos,  ...
+                                         center2Fault, c2fPos);
 
     %% Create reservoir grid
     dx = pdims(1)/ceil(pdims(1)/resGridSize);
@@ -354,9 +366,10 @@ function [I] = conflictCircles(Pts, isFault, CC, CR)
 end
 
 
-function [Pts, CR] = fixIntersections(Pts, isFault, CC, CR, f2c, c2f)
+function [Pts, CR] = fixIntersections(Pts, isFault, CC, CR, f2c,f2cPos, c2f,c2fPos)
   TOL = 10*eps;
- 
+  assert(all(diff(f2cPos)==2),'all points must be created from exactly 2 circles');
+  
   % Find conflict circles
   I = conflictCircles(Pts, isFault, CC, CR);
   
@@ -368,12 +381,13 @@ function [Pts, CR] = fixIntersections(Pts, isFault, CC, CR, f2c, c2f)
   id = cumsum(id);
   %rem  = cellfun(@numel, I(circ))>1; % Ignore these cases
   %circ = circ(~rem);
-  
-  circ = [circ(id), f2c(vertcat(I{circ}),:)]; 
+  circ = [circ(id), f2c([f2cPos(vertcat(I{circ})), f2cPos(vertcat(I{circ}))+1])];
+                  % Assumes all points are created from exactly two circles
   
   % Find shared circle
-  neigh = findNeighbors(circ(:,1),c2f, f2c); % OBS assumes specific ordering on faults
-  
+  [neigh,neighPos] = findNeighbors(circ(:,1),c2f,c2fPos, f2c,f2cPos);
+  assert(all(diff(neighPos)==2));
+  neigh = reshape(neigh,2,[])';
   shared = 2*any(bsxfun(@eq, neigh, circ(:,2)),2) ...
           +3*any(bsxfun(@eq, neigh, circ(:,3)),2);
   keep = find(shared);
@@ -388,29 +402,53 @@ function [Pts, CR] = fixIntersections(Pts, isFault, CC, CR, f2c, c2f)
   int = lineCircInt(CC(circ(:,3),:),CR(circ(:,3)), line);
   % set radius to smallest
   R = sqrt(sum((CC(circ(:,1:2),:)-[int;int]).^2,2));
-  for i = 1:numel(R)-1
+  for i = 1:numel(R)
     CR(circ(i)) = min(CR(circ(i)),R(i));
   end
   % Remove duplicates
   c = unique(circ(:,1:2));
       
   % Calculate new Pts
-  fId = c2f(c,:);
+  map = arrayfun(@colon,c2fPos(c),c2fPos(c+1)-1,'uniformOutput',false)';
+  fId = c2f(vertcat(map{:}));
   fId = unique(fId(:));
   fId = fId(~isnan(fId));
   
-  neigh = findNeighbors(c(:), c2f, f2c); % I do this twice. hmm
-  p = circCircInt(CC(c(:),:), CR(c(:)),...
-                 reshape(CC(neigh',:)',4,[])',reshape(CR(neigh),[],2));
+  [neigh,neighPos] = findNeighbors(c, c2f,c2fPos, f2c,f2cPos); % I do this twice. hmm
+  assert(all(diff(neighPos)==2));
+  neigh = reshape(neigh,2,[])';
   
+  p = circCircInt(CC(c,:), CR(c),...
+                 reshape(CC(neigh',:)',4,[])',reshape(CR(neigh),[],2));
+
   Pts(fId,:) = p;
+  %f2c(fId,:) = repmat([reshape(repmat(c,1,2)',[],1),reshape(neigh',[],1)],2,1);
+  
+  
+  
+  theta = linspace(0,2*pi);
+  theta = theta';
+
+  for i = 1:numel(c)
+    f = c2f(c(i),:);
+    b = plot(Pts(f,1), Pts(f,2),'.','markersize',20);
+    a = plot(CC(c(i),1), CC(c(i),2),'.','markersize',20);
+    delete(b)
+    delete(a)
+  end
 end
 
-function [neigh] = findNeighbors(c, c2f, f2c)
-%OBS does not work on end points
-pId   = c2f(c,[1,3]);
-neigh = reshape(f2c(pId',:)',4,[])';
-neigh = reshape(neigh(bsxfun(@ne, neigh,c)),[],2);
+function [neigh,neighPos] = findNeighbors(c, c2f,c2fPos, f2c,f2cPos)
+
+map   = arrayfun(@colon, c2fPos(c),c2fPos(c+1)-1,'uniformoutput',false);
+pId   = cellfun(@(c) c2f(c), map,'uniformOutput',false);
+neighMap = cellfun(@(c) cell2mat(arrayfun(@colon, f2cPos(c),f2cPos(c+1)-1,'uniformOutput',false)')...
+                    ,pId,'uniformOutput',false);
+neigh = cellfun(@(c) f2c(c),neighMap,'uniformOutput',false);
+neigh = cellfun(@unique, neigh,'uniformOutput',false);
+neigh = arrayfun(@(i) neigh{i}(neigh{i}~=c(i)),1:numel(neigh),'uniformOutput',false)';
+neighPos = cumsum([1;cellfun(@numel, neigh)]);
+neigh = vertcat(neigh{:});
 end
 
 
@@ -424,17 +462,16 @@ CR1 = reshape(CR1',1,[])';
 CR2 = reshape(CR2',1,[])';
 
 d = sqrt(sum((CC1 - CC2).^2,2));
-bisectPnt = (d.^2 - CR2.^2 + CR1.^2)...
-                ./(2*d);
+bisectPnt = (d.^2 - CR2.^2 + CR1.^2)./(2*d);
 faultOffset = sqrt(CR1.^2 - bisectPnt.^2);
 n1 = (CC2-CC1)./repmat(d,1,2); %Unit vector
 n2 = [-n1(:, 2), n1(:,1)];     %Unit normal
 
-% Set fault points on left and right side of fault
+% Set right left and right intersection points
 left   = CC1 + bsxfun(@times, bisectPnt, n1)  ...
-       + bsxfun(@times, faultOffset, n2);
+         + bsxfun(@times, faultOffset, n2);
 right  = CC1 + bsxfun(@times, bisectPnt, n1)  ...
-       - bsxfun(@times, faultOffset, n2);
+         - bsxfun(@times, faultOffset, n2);
 
 % Put together result
 p = [right;left];
