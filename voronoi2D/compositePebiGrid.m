@@ -68,16 +68,14 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     assert(0.5<circleFactor && circleFactor<1);
     
     % Load faults and Wells
-    faultLines  = opt.faultLines;
-    wellLines   = opt.wellLines;
-    [faultLines, fCut] = splitFaults(faultLines, faultLines);
-    [wellLines,  ~]    = splitFaults(wellLines, wellLines);
-    [wellLines, wfCut] = splitFaults(wellLines, faultLines);
+    faultLines          = opt.faultLines;
+    wellLines           = opt.wellLines;
+    [faultLines, fCut]  = splitFaults(faultLines, faultLines);
+    [wellLines,  ~]     = splitFaults(wellLines, wellLines);
+    [wellLines, wfCut]  = splitFaults(wellLines, faultLines);
     [faultLines, fwCut] = splitFaults(faultLines, wellLines);
-    
     nFault      = numel(faultLines);
     nWell       = numel(wellLines);
-    linesToGrid = [wellLines, faultLines{:}];
     
     isWell      = [true(nWell,1); false(nFault,1)];
     fCut        = [zeros(nWell,1); fCut];
@@ -90,11 +88,11 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 
     wellPts       = [];         % Points
     faultPts      = [];
-    faultCenter   = [];         % Center of circle used to create fault pts
-    faultRadius   = [];         % Radius of the circle
-    fault2Center  = [];         % Map from a fault to the circle center
+    fC   = [];         % Center of circle used to create fault pts
+    fR   = [];         % Radius of the circle
+    f2c  = [];         % Map from a fault to the circle center
     f2cPos        = 1;
-    center2Fault  = [];         % Map from the circle center to a fault  
+    c2f  = [];         % Map from the circle center to a fault  
     c2fPos        = 1;
     faultPos      = 1;         % Start and end index of a fault in Pts
 
@@ -102,30 +100,28 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
    % Create fault and well points
 
   for i = 1:nWell  % create well points
-    if isWell(i)
-      wellLine       = wellLines{i};
-      [p, wellSpace] = createWellGridPoints(wellLine, wellGridSize);
-      keep = 1:size(p,1);
-      switch wfCut(i)
-        case 1
-          keep = keep(1:end-1);
-        case 2
-          keep = keep(2:end);
-        case 3
-          keep = keep(2:end-1);
-      end
-      gridSpacing    = [gridSpacing; wellSpace(keep)];
-      wellPts        = [wellPts;p(keep,:)];
+    wellLine       = wellLines{i};
+    [p, wellSpace] = createWellGridPoints(wellLine, wellGridSize);
+    keep = 1:size(p,1);
+    switch wfCut(i)
+      case 1
+        keep = keep(1:end-1);
+      case 2
+        keep = keep(2:end);
+      case 3
+        keep = keep(2:end-1);
     end
+    gridSpacing = [gridSpacing; wellSpace(keep)];
+    wellPts     = [wellPts;p(keep,:)];
+
   end
   [wellPts,IA] = uniquetol(wellPts,50*eps,'byRows',true);
   gridSpacing = gridSpacing(IA);
-    
-  lastFaultType = 0;
+
   for i = 1:nFault  % create fault points
     fracLine      = faultLines{i};
     sePtn         = .5*[fwCut(i)==2|fwCut(i)==3; fwCut(i)==1|fwCut(i)==3];
-    [p, fracSpace, CC, CR, f2c,cPos, c2f,fPos] =         ...
+    [p, fracSpace, fCi, fRi, f2ci,cPos, c2fi,fPos] =         ...
                             createFaultGridPoints(fracLine,     ... 
                                                   faultGridSize,...
                                                   circleFactor, ...
@@ -134,27 +130,24 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     if nl==0 % No fault points created
         continue
     end
+    gridSpacing = [gridSpacing;fracSpace];
 
-    newFaultType  = lastFaultType+1:lastFaultType+nl;
-    lastFaultType = newFaultType(end);
-    gridSpacing   = [gridSpacing;fracSpace];
-
-    faultPos      = [faultPos; size(faultPts,1)+1+size(p,1)];
-    faultPts      = [faultPts;p];
-    faultCenter   = [faultCenter; CC];
-    faultRadius   = [faultRadius; CR]; 
-    fault2Center  = [fault2Center;f2c + size(c2fPos,1)-1];
-    f2cPos        = [f2cPos; cPos(2:end) + f2cPos(end)-1];
-    center2Fault  = [center2Fault; c2f + size(faultPts,1)-nl*2];
-    c2fPos        = [c2fPos; fPos(2:end) + c2fPos(end)-1];
+    faultPos    = [faultPos; size(faultPts,1)+1+size(p,1)];
+    faultPts    = [faultPts;p];
+    fC          = [fC; fCi];
+    fR          = [fR; fRi]; 
+    f2c         = [f2c;f2ci + size(c2fPos,1)-1];
+    f2cPos      = [f2cPos; cPos(2:end) + f2cPos(end)-1];
+    c2f         = [c2f; c2fi + size(faultPts,1)-nl*2];
+    c2fPos      = [c2fPos; fPos(2:end) + c2fPos(end)-1];
   end
   
   % Add well-fault crossings
   % write this as a function
-  endCirc = fault2Center(f2cPos(faultPos([false;fwCut==1|fwCut==3]))-1);
-  strCirc = fault2Center(f2cPos(faultPos(fwCut==2|fwCut==3)));
-  p =circCircInt(faultCenter(strCirc,:), faultRadius(strCirc),...
-                 faultCenter(endCirc,:), faultRadius(endCirc));
+  endCirc = f2c(f2cPos(faultPos([false;fwCut==1|fwCut==3]))-1);
+  strCirc = f2c(f2cPos(faultPos(fwCut==2|fwCut==3)));
+  p =circCircInt(fC(strCirc,:), fR(strCirc),...
+                 fC(endCirc,:), fR(endCirc));
   fId = (size(faultPts,1)+1:size(faultPts,1) + size(p,1))';
   fId = repmat(fId',2,1);
   fId = fId(:);
@@ -166,28 +159,28 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
   nGs      = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
   gridSpacing = [gridSpacing;reshape(nGs(:,1:2:end),[],1)];
   f2cPos   = [f2cPos;f2cPos(end)+2*cumsum(ones(size(p,1),1))];
-  fault2Center = [fault2Center;cId];
+  f2c = [f2c;cId];
   c2fPos   = c2fPos + cumsum(accumarray([cId+1;size(c2fPos,1)],2*[ones(1,size(cId,1)),0]));
-  center2Fault = insertVec(center2Fault, fId, c2fId);
+  c2f = insertVec(c2f, fId, c2fId);
   
  
   
   % Remove duplicate fault Centers
   if ~isempty(faultPts)
-    [faultCenter, IA, IC] = uniquetol(faultCenter,'byRows',true);
-    faultRadius = faultRadius(IA);
+    [fC, IA, IC] = uniquetol(fC,'byRows',true);
+    fR = fR(IA);
     [~,I]       = sort(IC);
     map         = [c2fPos(1:end-1), c2fPos(2:end)-1];
     map         = map(I,:);
     map         = arrayfun(@colon, map(:,1),map(:,2),'uniformOutput',false);
-    center2Fault = center2Fault(cell2mat(map'));
+    c2f = c2f(cell2mat(map'));
     fNum        = diff(c2fPos);
     c2fPos      = cumsum([1; accumarray(IC,fNum)]);
-    fault2Center = IC(fault2Center);
+    f2c = IC(f2c);
     % Merge intersections
-    [faultPts, faultRadius, fault2Center, f2cPos, center2fault,c2fPos] =...
-        fixIntersections(faultPts, faultCenter, faultRadius, ...
-                         fault2Center, f2cPos, center2Fault, c2fPos);
+    [faultPts, fR, f2c, f2cPos, center2fault,c2fPos] =...
+        fixIntersections(faultPts, fC, fR, ...
+                         f2c, f2cPos, c2f, c2fPos);
   end
   % Create reservoir grid
   dx = pdims(1)/ceil(pdims(1)/resGridSize);
@@ -234,8 +227,8 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 %                                                         faultToCenter,...
 %                                                         removed);
       [Pts, removed] = enforceSufficientFaultCondition(Pts, ...
-                                                       faultCenter,...
-                                                       faultRadius);
+                                                       fC,...
+                                                       fR);
       % If you whish to use the updated faultCenter and faultRadius later 
       % you can retrive them by replacing the ~ outputs.
 
@@ -264,7 +257,7 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 
   % label fault faces.
   if any(faultType)
-    f2c = fault2Center;
+    f2c = f2c;
 
     N      = G.faces.neighbors + 1;
     f2cPos = [1;f2cPos];
