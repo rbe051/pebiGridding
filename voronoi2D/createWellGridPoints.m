@@ -6,7 +6,7 @@ function [Pts, gridSpacing] = createWellGridPoints(wellLine, wellDs)
         Pts = wellLine;
         gridSpacing = wellDs*(1-10^-6);
     else
-        [Pts, ~] = eqInterpret(wellLine, wellDs);
+        [Pts, ~] = eqInterpret(wellLine, wellDs, [0;0]);
         gridSpacing = sqrt(sum(diff(Pts,1,1).^2,2));
         gridSpacing = [gridSpacing(1);gridSpacing;gridSpacing(end)];
         gridSpacing = min([gridSpacing(1:end-1), gridSpacing(2:end)],[],2);

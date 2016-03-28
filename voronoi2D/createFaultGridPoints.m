@@ -1,5 +1,5 @@
 function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ...
-    createFaultGridPoints(faultLine, fracDs, circleFactor, isCut, varargin) 
+    createFaultGridPoints(faultLine, fracDs, circleFactor, isCut,sePtn, varargin) 
     % Places fault grid points on both sides of a fault
     % Arguments:
     %   faultLine       k*n array of poits, [x,y] describing the fault
@@ -31,7 +31,7 @@ function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ..
     assert(size(faultLine,1)>1 && size(faultLine,2)==2);
     
     % interpolate fault line to get desired grid spacing. 
-    circCenter = interFaultLine(faultLine, fh, fracDs);
+    circCenter = interFaultLine(faultLine, fh, fracDs,sePtn);
     numOfFracPts = size(circCenter,1)-1;
     
     % Test faultLine
@@ -43,7 +43,9 @@ function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ..
         circCenter  = [];
         circRadius  = [];
         f2c         = [];
+        f2cPos      = [];
         c2f         = [];
+        c2fPos      = [];
         return
       end
     end
@@ -94,7 +96,7 @@ function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ..
 end
 
 
-function [p] = interFaultLine(line, fh, lineDist, varargin)
+function [p] = interFaultLine(line, fh, lineDist,sePtn, varargin)
     % Interpolate a fault line. 
     % Arguments:
     %   line        Coordinates of the fault line. Must be ordered.
@@ -110,8 +112,10 @@ function [p] = interFaultLine(line, fh, lineDist, varargin)
     TOL = 1e-4; maxIt = 10000;
 
     % Create initial points, equally distributed.
-    p = eqInterpret(line, lineDist);
-
+    p = eqInterpret(line, lineDist,sePtn);
+    % add auxillary points
+    if sePtn(1)~=0, p = [line(1,:);p]; end
+    if sePtn(2)~=0, p = [p;line(end,:)]; end
     count=0;
     while count<maxIt
       count = count+1;
@@ -119,13 +123,15 @@ function [p] = interFaultLine(line, fh, lineDist, varargin)
       d = distAlLine(line, p);
       pmid = (p(1:end-1,:) + p(2:end,:))/2;
       dw = fh(pmid,varargin{:});
+      if sePtn(1)~=0, dw(1) = dw(1).*sePtn(1);end
+      if sePtn(2)~=0, dw(end) = dw(end).*sePtn(2);end
 
       % Possible insert or remove points
       if sum(d - dw)>min(dw)
           [~, id] = max(d - dw);
           p = [p(1:id,:); pmid(id,:); p(id+1:end,:)];
           continue
-      elseif sum(d - dw) < - max(dw)
+      elseif sum(d - dw)<-max(dw)
           [~, id] = min(d - dw);
           if id == 1, id = 2; end
           p = p([1:id-1,id+1:end],:);
@@ -141,9 +147,11 @@ function [p] = interFaultLine(line, fh, lineDist, varargin)
       p = interpLine(line,d);            % Update node positions
 
       % Terminate if Nodes have moved (relative) less  than TOL
-      if all(abs(moveNode)<TOL*lineDist), return; end
+      if all(abs(moveNode)<TOL*lineDist), break; end
     end
-
+    
+    if sePtn(1)~=0, p = p(2:end,:);end
+    if sePtn(2)~=0, p = p(1:end-1,:);end
     if count == maxIt
         warning('Fault interpolation did not converge.')
     end
@@ -152,7 +160,7 @@ end
 
 
 function [d] = distAlLine(line, p)
-    % Calculates the distace between consecutive interpolation points along % Put together result
+    % Calculates the distace between consecutive interpolation points along
     % line
     % Arguments:
     %   line    line that is interpolated
@@ -170,7 +178,7 @@ function [d] = distAlLine(line, p)
         lineEnd = repmat(line(i+1,:), size(p,1),1);
         distA = eucDist(lineStart, p) + eucDist(p,lineEnd);
         distB = eucDist(lineStart,lineEnd);
-        indx  = find(abs(distA - distB) < TOL*eucDist(lineStart,lineEnd));
+        indx  = find(abs(distA - distB) < TOL*distB);
         if numel(indx)==0 
             jointDist = jointDist + eucDist(line(i,:), line(i+1,:));
             continue
