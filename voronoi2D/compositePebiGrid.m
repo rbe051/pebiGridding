@@ -81,20 +81,19 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     fCut        = [zeros(nWell,1); fCut];
 
     % Initialize variables.
-    faultType   = [];           % To keep track of fault points
-    wellType    = logical([]);  % To keep track of well points 
-    priIndex    = [];           % Priority of each point
-    gridSpacing = [];           % Allowed grid spacing for each point
-
-    wellPts       = [];         % Points
-    faultPts      = [];
-    fC   = [];         % Center of circle used to create fault pts
-    fR   = [];         % Radius of the circle
-    f2c  = [];         % Map from a fault to the circle center
-    f2cPos        = 1;
-    c2f  = [];         % Map from the circle center to a fault  
-    c2fPos        = 1;
-    faultPos      = 1;         % Start and end index of a fault in Pts
+    faultType = [];           % To keep track of fault points
+    wellType  = logical([]);  % To keep track of well points 
+    wGs       = [];           % Allowed grid spacing for each point
+    fGs       = [];
+    wellPts   = [];           % Points
+    faultPts  = [];
+    fC        = [];         % Center of circle used to create fault pts
+    fR        = [];         % Radius of the circle
+    f2c       = [];         % Map from a fault to the circle center
+    f2cPos    = 1;
+    c2f       = [];         % Map from the circle center to a fault  
+    c2fPos    = 1;
+    faultPos  = 1;         % Start and end index of a fault in Pts
 
 
    % Create fault and well points
@@ -111,12 +110,12 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
       case 3
         keep = keep(2:end-1);
     end
-    gridSpacing = [gridSpacing; wellSpace(keep)];
-    wellPts     = [wellPts;p(keep,:)];
+    wGs     = [wGs; wellSpace(keep)];
+    wellPts = [wellPts;p(keep,:)];
 
   end
   [wellPts,IA] = uniquetol(wellPts,50*eps,'byRows',true);
-  gridSpacing = gridSpacing(IA);
+  wGs = wGs(IA);
 
   for i = 1:nFault  % create fault points
     fracLine      = faultLines{i};
@@ -130,16 +129,15 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     if nl==0 % No fault points created
         continue
     end
-    gridSpacing = [gridSpacing;fracSpace];
-
-    faultPos    = [faultPos; size(faultPts,1)+1+size(p,1)];
-    faultPts    = [faultPts;p];
-    fC          = [fC; fCi];
-    fR          = [fR; fRi]; 
-    f2c         = [f2c;f2ci + size(c2fPos,1)-1];
-    f2cPos      = [f2cPos; cPos(2:end) + f2cPos(end)-1];
-    c2f         = [c2f; c2fi + size(faultPts,1)-nl*2];
-    c2fPos      = [c2fPos; fPos(2:end) + c2fPos(end)-1];
+    fGs      = [fGs;fracSpace];
+    faultPos = [faultPos; size(faultPts,1)+1+size(p,1)];
+    faultPts = [faultPts;p];
+    fC       = [fC; fCi];
+    fR       = [fR; fRi]; 
+    f2c      = [f2c;f2ci + size(c2fPos,1)-1];
+    f2cPos   = [f2cPos; cPos(2:end) + f2cPos(end)-1];
+    c2f      = [c2f; c2fi + size(faultPts,1)-nl*2];
+    c2fPos   = [c2fPos; fPos(2:end) + c2fPos(end)-1];
   end
   
   % Add well-fault crossings
@@ -149,19 +147,20 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
   p =circCircInt(fC(strCirc,:), fR(strCirc),...
                  fC(endCirc,:), fR(endCirc));
   fId = (size(faultPts,1)+1:size(faultPts,1) + size(p,1))';
-  fId = repmat(fId',2,1);
-  fId = fId(:);
+  fId = reshape(fId,2,[]);
+  fId = repmat(fId,2,1);
   cId = reshape([strCirc,endCirc]',[],1);
   c2fId = repmat(c2fPos(cId)',2,1);
   c2fId = c2fId(:);
   
   faultPts = [faultPts;p];
   nGs      = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
-  gridSpacing = [gridSpacing;reshape(nGs(:,1:2:end),[],1)];
-  f2cPos   = [f2cPos;f2cPos(end)+2*cumsum(ones(size(p,1),1))];
-  f2c = [f2c;cId];
+  fGs = [fGs;reshape(nGs(:,1:2:end),[],1)];
   c2fPos   = c2fPos + cumsum(accumarray([cId+1;size(c2fPos,1)],2*[ones(1,size(cId,1)),0]));
-  c2f = insertVec(c2f, fId, c2fId);
+  c2f = insertVec(c2f, fId(:), c2fId);
+  cId = repmat(reshape(cId,2,[]),2,1);
+  f2cPos   = [f2cPos;f2cPos(end)+2*cumsum(ones(size(p,1),1))];
+  f2c = [f2c;cId(:)];
   
  
   
@@ -206,20 +205,11 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
       resPts      = resPtsInit;
       resGridSize = repmat(0.5*min(dx,dy),size(resPts,1),1);
   end
-  gridSpacing = [gridSpacing; resGridSize];
-
-  %f2cPos = [f2cPos;f2cPos(end)*ones(size(resPts,1),1)];
-  Pts       = [wellPts;faultPts;resPts];
-  priIndex  = [zeros(size(wellPts,1),1);zeros(size(faultPts,1),1);ones(size(resPts,1),1)];
-  wellType  = [true(size(wellPts,1),1);false(size(faultPts,1),1); false(size(resPts,1),1)];
-  faultType = [false(size(wellPts,1),1);true(size(faultPts,1),1); false(size(resPts,1),1)];
 
   % Remove Conflic Points
-  [~, ~, removed] = removeConflictPoints(Pts, gridSpacing, priIndex, wellType);
-  keep = ~removed|faultType|wellType;
-  Pts = Pts(keep,:);
-  faultType = faultType(keep);
-  wellType = wellType(keep);
+  resPts = removeConflictPoints2(resPts, wellPts,  wGs);
+  resPts = removeConflictPoints2(resPts, faultPts, fGs);
+  
   if opt.fullFaultEdge
 %         [faultCenter, faultRadius] = removeFaultCircles(faultCenter, ...
 %                                                         faultRadius,...
@@ -238,6 +228,7 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 
 
   % Create Grid
+  Pts = [faultPts;wellPts; resPts];
   %[Pts,IA] = uniquetol(Pts,50*eps,'byRows',true);
   Tri = delaunayTriangulation(Pts);
   G = triangleGrid(Pts, Tri.ConnectivityList);
@@ -256,11 +247,9 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 
 
   % label fault faces.
-  if any(faultType)
-    f2c = f2c;
-
+  if ~isempty(faultPts)
     N      = G.faces.neighbors + 1;
-    f2cPos = [1;f2cPos];
+    f2cPos = [1;f2cPos; f2cPos(end)*ones(size(Pts,1)-size(faultPts,1),1)];
     map1   = arrayfun(@colon, f2cPos(N(:,1)),f2cPos(N(:,1)+1)-1,'un',false);
     map2   = arrayfun(@colon, f2cPos(N(:,2)),f2cPos(N(:,2)+1)-1,'un',false);
     G.faces.tag = cellfun(@(c1,c2) numel(intersect(f2c(c1),f2c(c2)))>1, map1,map2);
