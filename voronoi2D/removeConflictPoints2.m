@@ -15,6 +15,10 @@ function [P1, removed] = removeConflictPoints2(P1,P2,TOL)
   % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
+  if isempty(P2)
+    removed = false(size(P1,1));
+    return
+  end
   TOL = repmat(TOL',size(P1,1),1);
   removed = any(pdist2(P1,P2)<TOL,2);
   P1      = P1(~removed,:);

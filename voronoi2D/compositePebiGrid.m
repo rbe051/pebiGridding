@@ -50,7 +50,7 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 %                       place the fault points close the the faults, while
 %                       a large value will place the far from the faults.
 %   fullFaultEdge     - OPTIONAL.
-%                       Default value FALSE. If TRUE any points that
+%                       Default value TRUE. If TRUE any points that
 %                       violate the sufficient fault condition will be
 %                       removed. This will guarantee that faults is traced
 %                       by edes in the  grid.
@@ -73,157 +73,110 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %}  
 
-    % Set options
-    opt = struct('wellLines',       {{}}, ...
-                 'wellGridFactor',  0.5,  ...
-                 'mlqtMaxLevel',    0,    ...
-                 'mlqtLevelSteps',  -1,   ...
-                 'faultLines',      {{}}, ...
-                 'faultGridFactor', 0.5,  ...
-                 'circleFactor',    0.6,  ...
-                 'fullFaultEdge',   0);         
-    
-    opt = merge_options(opt, varargin{:});
-    circleFactor = opt.circleFactor;
-    
-    % Set grid sizes
-    wellGridSize   = resGridSize*opt.wellGridFactor;
-    faultGridSize  = resGridSize*opt.faultGridFactor;
-    mlqtMaxLevel   = opt.mlqtMaxLevel;
-    mlqtLevelSteps = opt.mlqtLevelSteps;
-    
-    % Test input
-    assert(resGridSize>0);
-    assert(numel(pdims)==2);
-    assert(all(pdims>0 ));
-    assert(wellGridSize>0);
-    assert(mlqtMaxLevel>=0);
-    assert(faultGridSize>0);
-    assert(0.5<circleFactor && circleFactor<1);
-    
-    % Load faults and Wells
-    faultLines          = opt.faultLines;
-    wellLines           = opt.wellLines;
-    [faultLines, fCut]  = splitFaults(faultLines, faultLines);
-    [wellLines,  ~]     = splitFaults(wellLines, wellLines);
-    [wellLines, wfCut]  = splitFaults(wellLines, opt.faultLines);
-    [faultLines, fwCut] = splitFaults(faultLines, opt.wellLines);
-    F.lines.nFault      = numel(faultLines);
-    nWell       = numel(wellLines);
+% Set options
+opt = struct('wellLines',       {{}}, ...
+             'wellGridFactor',  0.5,  ...
+             'mlqtMaxLevel',    0,    ...
+             'mlqtLevelSteps',  -1,   ...
+             'faultLines',      {{}}, ...
+             'faultGridFactor', 0.5,  ...
+             'circleFactor',    0.6,  ...
+             'fullFaultEdge',   1);         
 
-    fCut        = [zeros(nWell,1); fCut];
+opt = merge_options(opt, varargin{:});
+circleFactor = opt.circleFactor;
 
-    % Initialize variables.
-    wellType  = logical([]);  % To keep track of well points 
-    wGs       = [];           % Allowed grid spacing for each point
-    F.f.Gs      = [];
-    wellPts   = [];           % Points
-    F.f.pts     = [];
-    F.c.CC = [];         % Center of circle used to create fault pts
-    F.c.R  = [];         % Radius of the circle
-    F.f.c     = [];         % Map from a fault to the circle center
-    F.f.cPos  = 1;
-    F.c.f  = [];         % Map from the circle center to a fault  
-    F.c.fPos = 1;
-    F.lines.faultPos  = 1;         % Start and end index of a fault in Pts
-    F.lines.lines = faultLines;
+% Set grid sizes
+wellGridSize   = resGridSize*opt.wellGridFactor;
+faultGridSize  = resGridSize*opt.faultGridFactor;
+mlqtMaxLevel   = opt.mlqtMaxLevel;
+mlqtLevelSteps = opt.mlqtLevelSteps;
 
-   % Create fault and well points
+% Test input
+assert(resGridSize>0);
+assert(numel(pdims)==2);
+assert(all(pdims>0 ));
+assert(wellGridSize>0);
+assert(mlqtMaxLevel>=0);
+assert(faultGridSize>0);
+assert(0.5<circleFactor && circleFactor<1);
 
-  for i = 1:nWell  % create well points
-    wellLine       = wellLines{i};
-    [p, wellSpace] = createWellGridPoints(wellLine, wellGridSize);
-    keep = 1:size(p,1);
-    switch wfCut(i)
-      case 1
-        keep = keep(1:end-1);
-      case 2
-        keep = keep(2:end);
-      case 3
-        keep = keep(2:end-1);
+% Load faults and Wells
+faultLines          = opt.faultLines;
+wellLines           = opt.wellLines;
+[faultLines, fCut]  = splitFaults(faultLines, faultLines);
+[wellLines,  ~]     = splitFaults(wellLines, wellLines);
+[wellLines, wfCut]  = splitFaults(wellLines, opt.faultLines);
+[faultLines, fwCut] = splitFaults(faultLines, opt.wellLines);
+F.lines.nFault      = numel(faultLines);
+nWell               = numel(wellLines);
+
+% Initialize variables.      
+F.f.Gs    = [];                % Fault point grid size
+F.f.pts   = [];                % Fault points
+F.c.CC    = [];                % Center of circle used to create fault pts
+F.c.R     = [];                % Radius of the circle
+F.f.c     = [];                % Map from a fault to the circle center
+F.f.cPos  = 1;                 
+F.c.f     = [];                % Map from the circle center to a fault  
+F.c.fPos  = 1;
+F.lines.faultPos  = 1;         % Map frm fault lines to fault points
+F.lines.lines = faultLines;
+
+% Create fault and well points
+[wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,wfCut);
+
+% Create fault grid points
+F = createFaultGridPoints(F, faultGridSize, circleFactor, fCut, fwCut);
+
+% Create reservoir grid
+dx = pdims(1)/ceil(pdims(1)/resGridSize);
+dy = pdims(2)/ceil(pdims(2)/resGridSize);
+vx = 0:dx:pdims(1);
+vy = 0:dy:pdims(2);
+
+[X, Y] = meshgrid(vx, vy);
+
+resPtsInit = [X(:), Y(:)]; % Reservoir grid points before refinement
+
+% Refine reservoir grid
+if ~isempty(wellPts)
+    res = {};
+    varArg = {'level', 1, 'maxLev', mlqtMaxLevel, 'distTol', mlqtLevelSteps};
+    for i = 1:size(resPtsInit,1)
+        res = [res; mlqt(resPtsInit(i,:), wellPts, resGridSize, varArg{:})];
     end
-    wGs     = [wGs; wellSpace(keep)];
-    wellPts = [wellPts;p(keep,:)];
+    resPts      = vec2mat([res{:,1}],2);
+    resGridSize = 0.5*[res{:,2}]';
+else
+    resPts      = resPtsInit;
+    resGridSize = repmat(0.5*min(dx,dy),size(resPts,1),1);
+end
 
-  end
-  [wellPts,IA] = uniquetol(wellPts,50*eps,'byRows',true);
-  wGs = wGs(IA);
-  % Create fault grid points
-  F = createFaultGridPoints(F, faultGridSize, circleFactor, fCut, fwCut);
+% Remove Conflic Points
+resPts = removeConflictPoints2(resPts, wellPts,  wGs);
+resPts = removeConflictPoints2(resPts, F.f.pts, F.f.Gs);
+resPts = enforceSufficientFaultCondition(resPts, F.c.CC, F.c.R);
 
-  % Create reservoir grid
-  dx = pdims(1)/ceil(pdims(1)/resGridSize);
-  dy = pdims(2)/ceil(pdims(2)/resGridSize);
-  vx = 0:dx:pdims(1);
-  vy = 0:dy:pdims(2);
+% Create Grid
+Pts = [F.f.pts;wellPts; resPts];
+G = triangleGrid(Pts);
+G = pebi(G);
 
-  [X, Y] = meshgrid(vx, vy);
+% label fault faces.
+if ~isempty(F.f.pts)
+  N      = G.faces.neighbors + 1;
+  f2cPos = [1;F.f.cPos; F.f.cPos(end)*ones(size(Pts,1)-size(F.f.pts,1),1)];
+  map1   = arrayfun(@colon, f2cPos(N(:,1)),f2cPos(N(:,1)+1)-1,'un',false);
+  map2   = arrayfun(@colon, f2cPos(N(:,2)),f2cPos(N(:,2)+1)-1,'un',false);
+  G.faces.tag = cellfun(@(c1,c2) numel(intersect(F.f.c(c1),F.f.c(c2)))>1, map1,map2);
+else
+  G.faces.tag = false(G.faces.num);
+end
 
-  resPtsInit = [X(:), Y(:)]; % Reservoir grid points before refinement
-
-
-  % Refine reservoir grid
-  if ~isempty(wellPts)
-      res = {};
-      varArg = {'level', 1, 'maxLev', mlqtMaxLevel, 'distTol', mlqtLevelSteps};
-      for i = 1:size(resPtsInit,1)
-          res = [res; mlqt(resPtsInit(i,:), wellPts, resGridSize, varArg{:})];
-      end
-      resPts      = vec2mat([res{:,1}],2);
-      resGridSize = 0.5*[res{:,2}]';
-  else
-      resPts      = resPtsInit;
-      resGridSize = repmat(0.5*min(dx,dy),size(resPts,1),1);
-  end
-
-  % Remove Conflic Points
-  resPts = removeConflictPoints2(resPts, wellPts,  wGs);
-  resPts = removeConflictPoints2(resPts, F.f.pts, F.f.Gs);
-  if opt.fullFaultEdge
-%         [faultCenter, faultRadius] = removeFaultCircles(faultCenter, ...
-%                                                         faultRadius,...
-%                                                         faultPos,...
-%                                                         faultToCenter,...
-%                                                         removed);
-      [Pts, removed] = enforceSufficientFaultCondition(Pts, ...
-                                                       fC,...
-                                                       fR);
-      % If you whish to use the updated faultCenter and faultRadius later 
-      % you can retrive them by replacing the ~ outputs.
-  end
-
-
-  % Create Grid
-  Pts = [F.f.pts;wellPts; resPts];
-  %[Pts,IA] = uniquetol(Pts,50*eps,'byRows',true);
-  
-  G = triangleGrid(Pts);
-  G = pebi(G);
-  subplot(1,2,1)
-  plotGrid(G,'facecolor','none')
-  axis equal off
-  subplot(1,2,2)
-  plotGrid(G,'facecolor','none')
-  axis equal off
-  hold on
-  for i = 1:numel(faultLines)
-    l = faultLines{i};
-    plot(l(:,1),l(:,2),'r')
-  end
-
-
-  % label fault faces.
-  if ~isempty(F.f.pts)
-    N      = G.faces.neighbors + 1;
-    f2cPos = [1;F.f.cPos; F.f.cPos(end)*ones(size(Pts,1)-size(F.f.pts,1),1)];
-    map1   = arrayfun(@colon, f2cPos(N(:,1)),f2cPos(N(:,1)+1)-1,'un',false);
-    map2   = arrayfun(@colon, f2cPos(N(:,2)),f2cPos(N(:,2)+1)-1,'un',false);
-    G.faces.tag = cellfun(@(c1,c2) numel(intersect(F.f.c(c1),F.f.c(c2)))>1, map1,map2);
-    %G.faces.tag = logical(ft1 == ft2 & ft1 > 0 & ft2 >0);
-  end
-  %Label well cells
-  G.cells.tag = logical(wellType);
-
+%Label well cells
+G.cells.tag = false(G.cells.num,1);
+G.cells.tag(size(F.f.pts,1)+1:size(F.f.pts,1)+size(wellPts,1))= true;
 end
 
 function [Pts, removed] = enforceSufficientFaultCondition(Pts, CC, CR)
@@ -239,7 +192,7 @@ TOL        = 20*eps;
 splitLines = cell(0);
 isCut      = [];
 if numel(L2)==0
-  isCut = 0;
+  isCut = zeros(numel(L1),1);
   splitLines = L1;
   return
 end
@@ -285,23 +238,5 @@ for i = 1:numel(L1)
   isCut      = [isCut;...
     [ones(numel(newLine)-1,1);endInt]+2*[startInt;ones(numel(newLine)-1,1)]];
   
-  for i = 1:numel(newLine)
-    plot(newLine{i}(:,1),newLine{i}(:,2))
-    hold on
-  end
 end
-
 end
-
-
-
-
-
-
-
-
-
-
-
-
-

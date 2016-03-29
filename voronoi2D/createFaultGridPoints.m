@@ -21,7 +21,7 @@ function [F] = createFaultGridPoints(F,faultGridSize,circleFactor,fCut,fwCut)
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 for i = 1:F.lines.nFault  % create fault points
-  faultLine      = F.lines.lines{i};
+  faultLine     = F.lines.lines{i};
   sePtn         = .5*[fwCut(i)==2|fwCut(i)==3; fwCut(i)==1|fwCut(i)==3];
   [p, fracSpace, fCi, fRi, f2ci,cPos, c2fi,fPos] =   ...
                           faultLinePts(faultLine,     ... 
@@ -33,42 +33,40 @@ for i = 1:F.lines.nFault  % create fault points
     F.lines.faultPos = [F.lines.faultPos; F.lines.faultPos(end)];
     continue
   end
-  F.f.Gs          = [F.f.Gs;fracSpace];
+  F.f.Gs           = [F.f.Gs;fracSpace];
   F.lines.faultPos = [F.lines.faultPos; size(F.f.pts,1)+1+size(p,1)];
-  F.f.pts         = [F.f.pts;p];
-  F.c.CC     = [F.c.CC; fCi];
-  F.c.R      = [F.c.R; fRi]; 
-  F.f.c         = [F.f.c; f2ci + size(F.c.fPos,1)-1];
-  F.f.cPos      = [F.f.cPos; cPos(2:end) + F.f.cPos(end)-1];
-  F.c.f      = [F.c.f; c2fi + size(F.f.pts,1)-nl*2];
-  F.c.fPos   = [F.c.fPos; fPos(2:end) + F.c.fPos(end)-1];
+  F.f.pts          = [F.f.pts;p];
+  F.c.CC           = [F.c.CC; fCi];
+  F.c.R            = [F.c.R; fRi]; 
+  F.f.c            = [F.f.c; f2ci + size(F.c.fPos,1)-1];
+  F.f.cPos         = [F.f.cPos; cPos(2:end) + F.f.cPos(end)-1];
+  F.c.f            = [F.c.f; c2fi + size(F.f.pts,1)-nl*2];
+  F.c.fPos         = [F.c.fPos; fPos(2:end) + F.c.fPos(end)-1];
 end
 
 % Add well-fault crossings
-% write this as a function
-endCirc = F.f.c(F.f.cPos(F.lines.faultPos([false;fwCut==1|fwCut==3]))-1);
-strCirc = F.f.c(F.f.cPos(F.lines.faultPos(fwCut==2|fwCut==3)));
-p       = circCircInt(F.c.CC(strCirc,:), F.c.R(strCirc),...
-                      F.c.CC(endCirc,:), F.c.R(endCirc));
-fId = (size(F.f.pts,1)+1:size(F.f.pts,1) + size(p,1))';
-fId = reshape(fId,2,[]);
-fId = repmat(fId,2,1);
-cId = reshape([strCirc,endCirc]',[],1);
-c2fId = repmat(F.c.fPos(cId)',2,1);
-c2fId = c2fId(:);
+if ~isempty(F.c.CC)
+  endCirc = F.f.c(F.f.cPos(F.lines.faultPos([false;fwCut==1|fwCut==3]))-1);
+  strCirc = F.f.c(F.f.cPos(F.lines.faultPos(fwCut==2|fwCut==3)));
+  p       = circCircInt(F.c.CC(strCirc,:), F.c.R(strCirc),...
+                        F.c.CC(endCirc,:), F.c.R(endCirc));
+  fId     = (size(F.f.pts,1)+1:size(F.f.pts,1) + size(p,1))';
+  fId     = reshape(fId,2,[]);
+  fId     = repmat(fId,2,1);
+  cId     = reshape([strCirc,endCirc]',[],1);
+  c2fId   = repmat(F.c.fPos(cId)',2,1);
+  c2fId   = c2fId(:);
 
-F.f.pts = [F.f.pts;p];
-nGs   = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
-F.f.Gs  = [F.f.Gs;reshape(nGs(:,1:2:end),[],1)];
-F.c.fPos = F.c.fPos + ...
-  cumsum(accumarray([cId+1;size(F.c.fPos,1)],2*[ones(1,size(cId,1)),0]));
-F.c.f = insertVec(F.c.f, fId(:), c2fId);
-cId = repmat(reshape(cId,2,[]),2,1);
-F.f.cPos = [F.f.cPos;F.f.cPos(end)+2*cumsum(ones(size(p,1),1))];
-F.f.c = [F.f.c;cId(:)];
-
-
-
+  F.f.pts = [F.f.pts;p];
+  nGs     = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
+  F.f.Gs  = [F.f.Gs;reshape(nGs(:,1:2:end),[],1)];
+  F.c.fPos= F.c.fPos + ...
+    cumsum(accumarray([cId+1;size(F.c.fPos,1)],2*[ones(1,size(cId,1)),0]));
+  F.c.f   = insertVec(F.c.f, fId(:), c2fId);
+  cId     = repmat(reshape(cId,2,[]),2,1);
+  F.f.cPos= [F.f.cPos;F.f.cPos(end)+2*cumsum(ones(size(p,1),1))];
+  F.f.c   = [F.f.c;cId(:)];
+end
 % Remove duplicate fault Centers
 if ~isempty(F.f.pts)
   [~, IA, IC] = uniquetol(F.c.CC,'byRows',true);
@@ -78,15 +76,12 @@ if ~isempty(F.f.pts)
   map         = [F.c.fPos(1:end-1), F.c.fPos(2:end)-1];
   map         = map(I,:);
   map         = arrayfun(@colon, map(:,1),map(:,2),'uniformOutput',false);
-  F.c.f = F.c.f(cell2mat(map'));
+  F.c.f       = F.c.f(cell2mat(map'));
   fNum        = diff(F.c.fPos);
-  F.c.fPos      = cumsum([1; accumarray(IC,fNum)]);
-  F.f.c = IC(F.f.c);
+  F.c.fPos    = cumsum([1; accumarray(IC,fNum)]);
+  F.f.c       = IC(F.f.c);
   % Merge intersections
-  [F] = fixIntersections(F);
-%                      [faultPts, fR, f2c, f2cPos, center2fault,c2fPos] =...
-%       fixIntersections(faultPts, fC, fR, ...
-%                        f2c, f2cPos, c2f, c2fPos);
+  [F]         = fixIntersections(F);
 end
    
 end
@@ -98,7 +93,7 @@ function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ..
     fh  = @(x) fracDs*constFunc(x);
     opt = struct('distFunc', fh);
     opt = merge_options(opt, varargin{:});
-    fh = opt.distFunc;
+    fh  = opt.distFunc;
     assert(0.5<circleFactor && circleFactor<1)
     assert(size(faultLine,1)>1 && size(faultLine,2)==2);
     
@@ -283,9 +278,7 @@ function [newPoints] = interpLine(path, dt)
 end
 
 
-
 function [F] = fixIntersections(F)
-  TOL = 10*eps;
   assert(all(diff(F.f.cPos)==2),'all points must be created from exactly 2 circles');
   
   % Find conflict circles
@@ -327,7 +320,7 @@ function [F] = fixIntersections(F)
   R = sqrt(sum((F.c.CC(circ(:,1:2),:)-[int;int]).^2,2));
   I = false(size(circ(:,1:2)));
   for i = 1:numel(R)
-    if R(i)<CR(circ(i))
+    if R(i)<F.c.R(circ(i))
       F.c.R(circ(i)) = R(i);
       I(circ(:,1:2)==circ(i)) = false;
       I(i) = true;
@@ -351,10 +344,13 @@ function [F] = fixIntersections(F)
                  reshape(F.c.CC(neigh',:)',4,[])',reshape(F.c.R(neigh),[],2));
   assert(isreal(p),'Failed to merge fault crossings. Possible too sharp intersections');
   F.f.pts(fId,:) = p;
+  nGs            = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
+  F.f.Gs(fId)    = reshape(nGs(:,1:2:end),[],1);
   map = [F.f.cPos(fId),F.f.cPos(fId)+1]';
-  F.f.c(map(:)) = [c';neigh(:,1)';c';neigh(:,1)';c';neigh(:,2)';c';neigh(:,2)'];%reshape(repmat([c',c';neigh(:,1)',neigh(:,2)'],2,1),2,[]);
+  F.f.c(map(:))  = [c';neigh(:,1)';c';neigh(:,1)';c';neigh(:,2)';c';neigh(:,2)'];%reshape(repmat([c',c';neigh(:,1)',neigh(:,2)'],2,1),2,[]);
 
-  [F.f.pts, ~, IC] = uniquetol(F.f.pts,'byRows',true);
+  [F.f.pts, IA, IC] = uniquetol(F.f.pts,'byRows',true);
+  F.f.Gs = F.f.Gs(IA);
   [~,I] = sort(IC);
   map = [F.f.cPos(1:end-1), F.f.cPos(2:end)-1];
   map = map(I,:);
@@ -371,6 +367,7 @@ function [F] = fixIntersections(F)
     delete(a)
   end
 end
+
 
 function [neigh,neighPos] = findNeighbors(c, c2f,c2fPos, f2c,f2cPos)
 map   = arrayfun(@colon, c2fPos(c),c2fPos(c+1)-1,'uniformoutput',false);
