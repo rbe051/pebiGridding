@@ -1,42 +1,77 @@
 function G = compositePebiGrid(resGridSize, pdims, varargin)
-    % Creates a PEBI grid adapting to faults and well traces.
-    %
-    % Argumets:
-    %   resGridSize         Size of the reservoir grid cells
-    %   pdims               [xmax, ymax], array with the size of the square
-    %                       to be gridded.
-    %
-    % Varargin:
-    %   wellLines           A struct of arrays. Each array is the 
-    %                       coordinates of a well trace. If the
-    %                       array only contains one coordinate, the well is
-    %                       treated as a point well.
-    %   wellGridFactor      The relative grid size of the well grid cells
-    %                       compared to reservoir grid cells
-    %   mlqtMaxLevel        Number of refinement steps to be used towards
-    %                       wells
-    %   mlqtLevelSteps      Array of size mlqtMaxLevel which specify the
-    %                       radius of each refinement level
-    %   faultLines          A struct of arrays. Each array is the
-    %                       coordinates of a fault trace. 
-    %   faultGridFactor     The relative grid size of the fault grid cells
-    %                       compared to the reservoir grid cells
-    %   circleFactor        Set the relative radius of the circles used to
-    %                       create the fault cells.
-    %   priOrder            Array of length number of wells + number of 
-    %                       faults. Sets the priority of well and fault 
-    %                       traces. First element set the priority of the
-    %                       first well, last element set the priority of
-    %                       the last fault.
-    %   fullFaultEdge       Set to true if you wish to guarantee the faults
-    %                       to be traced by edges in the PEBI grid
-    %
-    % Returns:
-    %   G                   A mrst grid structure. 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+% Construct a 2D composite Pebi grid. A cartesian background grid is 
+% refined around faults and wells.
+%
+% SYNOPSIS:
+%   G = compositePebiGrid(resGridSize, pdims)
+%   G = compositePebiGrid(...,'Name1',Value1,'Name2',Value2,...)
+%
+% PARAMETERS
+%   resGridSize       - Size of the reservoir grid cells, in units of
+%                       meters. 
+%   pdims             - Vector, length 2, [xmax, ymax], of physical size in
+%                       units of meters of the computational domain. 
+%
+%   wellLines         - OPTIONAL.
+%                       Default value empty. A struct of vectors. Each 
+%                       vector, size nw x 2, is the coordinates of a 
+%                       well-trace. The well is assumed to be linear 
+%                       between the coorinates. If the vector only contains 
+%                       one coordinate, the well is treated as a point well.
+%   wellGridFactor    - OPTINAL.
+%                       Default value is 0.5. This gives the relative grid
+%                       size of the well grid cells compared to reservoir 
+%                       grid cells. If wellGridFactor=0.5 the well cells 
+%                       will be about half the size of the reservoir cells.
+%   mlqtMaxLevel      - OPTIONAL.
+%                       Default value 0. Number of refinement steps around 
+%                       wells. 
+%   mlqtLevelSteps    - OPTIONAL.  
+%                       Default value -1. Vector of length mlqtMaxLevel 
+%                       which specify the radius of each refinement level.
+%                       The default value -1 calls the default level step
+%                       in the mlqt function.
+%   faultLines        - OPTINAL
+%                       Default value empty. A struct of vectors.  Each 
+%                       vector, size nf x 2, is the coordinates of a 
+%                       fault-trace. The fault is assumed to be linear 
+%                       between the coorinates
+%   faultGridFactor   - OPTINAL.
+%                       Default value is 0.5. This gives the relative grid
+%                       size of the fault grid cells compared to reservoir 
+%                       grid cells. If faultGridFactor=0.5 the fault cells 
+%                       will be about half the size of the reservoir cells.
+%   circleFactor      - OPTIONAL.
+%                       Default value 0.6.  Valid values are between 0.5 
+%                       and 1. circleFactor controll the size of the 
+%                       circles used to create the fault grid points. The 
+%                       circleFactor is the ratio between the radius, 
+%                       and distace between the circles. A small value will
+%                       place the fault points close the the faults, while
+%                       a large value will place the far from the faults.
+%   fullFaultEdge     - OPTIONAL.
+%                       Default value FALSE. If TRUE any points that
+%                       violate the sufficient fault condition will be
+%                       removed. This will guarantee that faults is traced
+%                       by edes in the  grid.
+%
+% RETURNS:
+%   G                - Valid grid definition.  
+%                        The fields
+%                          G.cells.tag  - is TRUE for all well cells.
+%                          G.faces.tag  - is TRUE for all fault edges. 
+%
+% EXAMPLE:
+%   fl = {[0.2,0.2;0.8,0.8]};
+%   wl = {[0.2,0.8;0.8,0.2]};
+%   G  = compositePebiGrid(1/10,[1,1],'wellLines',wl,'faultLines',fl)
+%   cla, plotGrid(G)
+
+  %{
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%}  
 
     % Set options
     opt = struct('wellLines',       {{}}, ...
@@ -46,8 +81,7 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
                  'faultLines',      {{}}, ...
                  'faultGridFactor', 0.5,  ...
                  'circleFactor',    0.6,  ...
-                 'fullFaultEdge',   0,    ...
-                 'priOrder',        []);         
+                 'fullFaultEdge',   0);         
     
     opt = merge_options(opt, varargin{:});
     circleFactor = opt.circleFactor;
@@ -72,29 +106,27 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
     wellLines           = opt.wellLines;
     [faultLines, fCut]  = splitFaults(faultLines, faultLines);
     [wellLines,  ~]     = splitFaults(wellLines, wellLines);
-    [wellLines, wfCut]  = splitFaults(wellLines, faultLines);
-    [faultLines, fwCut] = splitFaults(faultLines, wellLines);
-    nFault      = numel(faultLines);
+    [wellLines, wfCut]  = splitFaults(wellLines, opt.faultLines);
+    [faultLines, fwCut] = splitFaults(faultLines, opt.wellLines);
+    F.lines.nFault      = numel(faultLines);
     nWell       = numel(wellLines);
-    
-    isWell      = [true(nWell,1); false(nFault,1)];
+
     fCut        = [zeros(nWell,1); fCut];
 
     % Initialize variables.
-    faultType = [];           % To keep track of fault points
     wellType  = logical([]);  % To keep track of well points 
     wGs       = [];           % Allowed grid spacing for each point
-    fGs       = [];
+    F.f.Gs      = [];
     wellPts   = [];           % Points
-    faultPts  = [];
-    fC        = [];         % Center of circle used to create fault pts
-    fR        = [];         % Radius of the circle
-    f2c       = [];         % Map from a fault to the circle center
-    f2cPos    = 1;
-    c2f       = [];         % Map from the circle center to a fault  
-    c2fPos    = 1;
-    faultPos  = 1;         % Start and end index of a fault in Pts
-
+    F.f.pts     = [];
+    F.c.CC = [];         % Center of circle used to create fault pts
+    F.c.R  = [];         % Radius of the circle
+    F.f.c     = [];         % Map from a fault to the circle center
+    F.f.cPos  = 1;
+    F.c.f  = [];         % Map from the circle center to a fault  
+    F.c.fPos = 1;
+    F.lines.faultPos  = 1;         % Start and end index of a fault in Pts
+    F.lines.lines = faultLines;
 
    % Create fault and well points
 
@@ -116,71 +148,9 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
   end
   [wellPts,IA] = uniquetol(wellPts,50*eps,'byRows',true);
   wGs = wGs(IA);
+  % Create fault grid points
+  F = createFaultGridPoints(F, faultGridSize, circleFactor, fCut, fwCut);
 
-  for i = 1:nFault  % create fault points
-    fracLine      = faultLines{i};
-    sePtn         = .5*[fwCut(i)==2|fwCut(i)==3; fwCut(i)==1|fwCut(i)==3];
-    [p, fracSpace, fCi, fRi, f2ci,cPos, c2fi,fPos] =         ...
-                            createFaultGridPoints(fracLine,     ... 
-                                                  faultGridSize,...
-                                                  circleFactor, ...
-                                                  fCut(i),sePtn);
-    nl = size(p,1)/2;
-    if nl==0 % No fault points created
-        continue
-    end
-    fGs      = [fGs;fracSpace];
-    faultPos = [faultPos; size(faultPts,1)+1+size(p,1)];
-    faultPts = [faultPts;p];
-    fC       = [fC; fCi];
-    fR       = [fR; fRi]; 
-    f2c      = [f2c;f2ci + size(c2fPos,1)-1];
-    f2cPos   = [f2cPos; cPos(2:end) + f2cPos(end)-1];
-    c2f      = [c2f; c2fi + size(faultPts,1)-nl*2];
-    c2fPos   = [c2fPos; fPos(2:end) + c2fPos(end)-1];
-  end
-  
-  % Add well-fault crossings
-  % write this as a function
-  endCirc = f2c(f2cPos(faultPos([false;fwCut==1|fwCut==3]))-1);
-  strCirc = f2c(f2cPos(faultPos(fwCut==2|fwCut==3)));
-  p =circCircInt(fC(strCirc,:), fR(strCirc),...
-                 fC(endCirc,:), fR(endCirc));
-  fId = (size(faultPts,1)+1:size(faultPts,1) + size(p,1))';
-  fId = reshape(fId,2,[]);
-  fId = repmat(fId,2,1);
-  cId = reshape([strCirc,endCirc]',[],1);
-  c2fId = repmat(c2fPos(cId)',2,1);
-  c2fId = c2fId(:);
-  
-  faultPts = [faultPts;p];
-  nGs      = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
-  fGs = [fGs;reshape(nGs(:,1:2:end),[],1)];
-  c2fPos   = c2fPos + cumsum(accumarray([cId+1;size(c2fPos,1)],2*[ones(1,size(cId,1)),0]));
-  c2f = insertVec(c2f, fId(:), c2fId);
-  cId = repmat(reshape(cId,2,[]),2,1);
-  f2cPos   = [f2cPos;f2cPos(end)+2*cumsum(ones(size(p,1),1))];
-  f2c = [f2c;cId(:)];
-  
- 
-  
-  % Remove duplicate fault Centers
-  if ~isempty(faultPts)
-    [fC, IA, IC] = uniquetol(fC,'byRows',true);
-    fR = fR(IA);
-    [~,I]       = sort(IC);
-    map         = [c2fPos(1:end-1), c2fPos(2:end)-1];
-    map         = map(I,:);
-    map         = arrayfun(@colon, map(:,1),map(:,2),'uniformOutput',false);
-    c2f = c2f(cell2mat(map'));
-    fNum        = diff(c2fPos);
-    c2fPos      = cumsum([1; accumarray(IC,fNum)]);
-    f2c = IC(f2c);
-    % Merge intersections
-    [faultPts, fR, f2c, f2cPos, center2fault,c2fPos] =...
-        fixIntersections(faultPts, fC, fR, ...
-                         f2c, f2cPos, c2f, c2fPos);
-  end
   % Create reservoir grid
   dx = pdims(1)/ceil(pdims(1)/resGridSize);
   dy = pdims(2)/ceil(pdims(2)/resGridSize);
@@ -208,8 +178,7 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 
   % Remove Conflic Points
   resPts = removeConflictPoints2(resPts, wellPts,  wGs);
-  resPts = removeConflictPoints2(resPts, faultPts, fGs);
-  
+  resPts = removeConflictPoints2(resPts, F.f.pts, F.f.Gs);
   if opt.fullFaultEdge
 %         [faultCenter, faultRadius] = removeFaultCircles(faultCenter, ...
 %                                                         faultRadius,...
@@ -221,17 +190,14 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
                                                        fR);
       % If you whish to use the updated faultCenter and faultRadius later 
       % you can retrive them by replacing the ~ outputs.
-
-      faultType = faultType(~removed);
-      wellType = wellType(~removed);
   end
 
 
   % Create Grid
-  Pts = [faultPts;wellPts; resPts];
+  Pts = [F.f.pts;wellPts; resPts];
   %[Pts,IA] = uniquetol(Pts,50*eps,'byRows',true);
-  Tri = delaunayTriangulation(Pts);
-  G = triangleGrid(Pts, Tri.ConnectivityList);
+  
+  G = triangleGrid(Pts);
   G = pebi(G);
   subplot(1,2,1)
   plotGrid(G,'facecolor','none')
@@ -247,12 +213,12 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 
 
   % label fault faces.
-  if ~isempty(faultPts)
+  if ~isempty(F.f.pts)
     N      = G.faces.neighbors + 1;
-    f2cPos = [1;f2cPos; f2cPos(end)*ones(size(Pts,1)-size(faultPts,1),1)];
+    f2cPos = [1;F.f.cPos; F.f.cPos(end)*ones(size(Pts,1)-size(F.f.pts,1),1)];
     map1   = arrayfun(@colon, f2cPos(N(:,1)),f2cPos(N(:,1)+1)-1,'un',false);
     map2   = arrayfun(@colon, f2cPos(N(:,2)),f2cPos(N(:,2)+1)-1,'un',false);
-    G.faces.tag = cellfun(@(c1,c2) numel(intersect(f2c(c1),f2c(c2)))>1, map1,map2);
+    G.faces.tag = cellfun(@(c1,c2) numel(intersect(F.f.c(c1),F.f.c(c2)))>1, map1,map2);
     %G.faces.tag = logical(ft1 == ft2 & ft1 > 0 & ft2 >0);
   end
   %Label well cells
@@ -327,178 +293,6 @@ end
 
 end
 
-function C = insertVec(A,B,id)
-[id,I] = sort(id);
-B      = B(I,:);
-C = zeros(size(A)+[size(B,1),0])+nan;
-C(id + (0:numel(id)-1)',:) = B;
-C(isnan(C)) = A;
-end
-
-
-function [I] = conflictCircles(Pts, CC, CR)
-    TOL = 10*eps;
-
-    nc = size(CC,1);
-    np = size(Pts,1);
-    removed = zeros(np,1);
-    CRSqr = CR.^2;
-    I = cell(numel(CR),1);
-    for i = 1:nc
-        distSqr = sum((repmat(CC(i,:),np,1)-Pts).^2,2);
-        I{i} = find(distSqr<CRSqr(i)-10*eps);
-    end                
-end
-
-
-function [Pts, CR,f2c,f2cPos,c2f,c2fPos] = ...
-             fixIntersections(Pts, CC, CR, f2c,f2cPos, c2f,c2fPos)
-  TOL = 10*eps;
-  assert(all(diff(f2cPos)==2),'all points must be created from exactly 2 circles');
-  
-  % Find conflict circles
-  I = conflictCircles(Pts, CC, CR);
-  
-  circ    = find(~cellfun(@isempty,I));
-  if isempty(circ)
-    return
-  end
-  circNum = cellfun(@numel, I(circ));
-  id      = zeros(sum(circNum),1);
-  circPos = cumsum([1; circNum]);
-  id(circPos(1:end-1)) = 1;
-  id      = cumsum(id);
-  circ    = [circ(id), f2c([f2cPos(vertcat(I{circ})),...
-             f2cPos(vertcat(I{circ}))+1])];
-  
-  % Find shared circle
-  [neigh,neighPos] = findNeighbors(circ(:,1),c2f,c2fPos, f2c,f2cPos);
-  assert(all(diff(neighPos)==2));
-  
-  neigh  = reshape(neigh,2,[])';
-  shared = 2*any(bsxfun(@eq, neigh, circ(:,2)),2) ...
-          +3*any(bsxfun(@eq, neigh, circ(:,3)),2);
-  keep   = find(shared);
-  circ   = circ(keep,:);
-  swap   = shared(keep)==2;                % Set shared circle at third row
-  circ(swap,:) = [circ(swap,1),circ(swap,3),circ(swap,2)];
-  
-  % Remove duplicate pairs
-  [~,IA] = unique(sort(circ,2),'rows');
-  circ   = circ(IA,:);
-
-  % Calculate new radiuses
-  line = [CC(circ(:,3),:),reshape(mean(reshape(CC(circ(:,1:2)',:),2,[]),1),[],2)];
-  int  = lineCircInt(CC(circ(:,3),:),CR(circ(:,3)), line);
-
-  % set radius to smallest
-  R = sqrt(sum((CC(circ(:,1:2),:)-[int;int]).^2,2));
-  I = false(size(circ(:,1:2)));
-  for i = 1:numel(R)
-    if R(i)<CR(circ(i))
-      CR(circ(i)) = R(i);
-      I(circ(:,1:2)==circ(i)) = false;
-      I(i) = true;
-    elseif R(i)==CR(circ(i))
-      I(i) = true;
-    end
-  end
-  c = unique(circ(:,1:2));
-
-  % Calculate new Pts
-  map = arrayfun(@colon,c2fPos(c),c2fPos(c+1)-1,'uniformOutput',false)';
-  fId = c2f(horzcat(map{:})');
-%   fId = unique(fId(:));
-%   fId = fId(~isnan(fId));
-
-  [neigh,neighPos] = findNeighbors(c, c2f,c2fPos, f2c,f2cPos); % I do this twice. hmm
-  assert(all(diff(neighPos)==2));
-  neigh = reshape(neigh,2,[])';
-  
-  p = circCircInt(CC(c,:), CR(c),...
-                 reshape(CC(neigh',:)',4,[])',reshape(CR(neigh),[],2));
-  assert(isreal(p),'Failed to merge fault crossings. Possible too sharp intersections');
-  Pts(fId,:) = p;
-  map = [f2cPos(fId),f2cPos(fId)+1]';
-  f2c(map(:)) = [c';neigh(:,1)';c';neigh(:,1)';c';neigh(:,2)';c';neigh(:,2)'];%reshape(repmat([c',c';neigh(:,1)',neigh(:,2)'],2,1),2,[]);
-
-  [Pts, ~, IC] = uniquetol(Pts,'byRows',true);
-  [~,I] = sort(IC);
-  map = [f2cPos(1:end-1), f2cPos(2:end)-1];
-  map = map(I,:);
-  map = arrayfun(@colon, map(:,1),map(:,2),'uniformOutput',false);
-  f2c = f2c(cell2mat(map'));
-  cNum = diff(f2cPos);
-  f2cPos = cumsum([1;accumarray(IC,cNum)]);
-  c2f = IC(c2f);
-  for i = 1:numel(c)
-    f = c2f(c2fPos(c(i)):c2fPos(c(i)+1)-1,:);
-    b = plot(Pts(f,1), Pts(f,2),'.','markersize',20);
-    a = plot(CC(c(i),1), CC(c(i),2),'.','markersize',20);
-    delete(b)
-    delete(a)
-  end
-end
-
-function [neigh,neighPos] = findNeighbors(c, c2f,c2fPos, f2c,f2cPos)
-map   = arrayfun(@colon, c2fPos(c),c2fPos(c+1)-1,'uniformoutput',false);
-pId   = cellfun(@(c) c2f(c), map,'uniformOutput',false);
-neighMap = cellfun(@(c) cell2mat(arrayfun(@colon, f2cPos(c),f2cPos(c+1)-1,'uniformOutput',false)')...
-                    ,pId,'uniformOutput',false);
-neigh = cellfun(@(c) f2c(c),neighMap,'uniformOutput',false);
-neigh = cellfun(@unique, neigh,'uniformOutput',false);
-neigh = arrayfun(@(i) neigh{i}(neigh{i}~=c(i)),1:numel(neigh),'uniformOutput',false)';
-neighPos = cumsum([1;cellfun(@numel, neigh)]);
-neigh = vertcat(neigh{:});
-end
-
-
-function [p] = circCircInt(CC1, CR1, CC2,CR2)
-
-% Expand matrices for computation
-CC1 = repmat(CC1, 1,size(CC2,2)/size(CC1,2));
-CR1 = repmat(CR1, 1,size(CR2,2)/size(CR1,2));
-CC1 = reshape(CC1',2,[])';
-CC2 = reshape(CC2',2,[])';
-CR1 = reshape(CR1',1,[])';
-CR2 = reshape(CR2',1,[])';
-
-d = sqrt(sum((CC1 - CC2).^2,2));              % Distance between centers
-bisectPnt = (d.^2 - CR2.^2 + CR1.^2)./(2*d);  % Mid-Point
-faultOffset = sqrt(CR1.^2 - bisectPnt.^2);    % Pythagoras
-n1 = (CC2-CC1)./repmat(d,1,2);                % Unit vector
-n2 = [-n1(:, 2), n1(:,1)];                    % Unit normal
-
-% Set right left and right intersection points
-left   = CC1 + bsxfun(@times, bisectPnt, n1)  ...
-         + bsxfun(@times, faultOffset, n2);
-right  = CC1 + bsxfun(@times, bisectPnt, n1)  ...
-         - bsxfun(@times, faultOffset, n2);
-
-% Put result together
-p = reshape([right,left]',2,[])';
-
-end
-
-
-
-function [p] = lineCircInt(CC, CR, line)
-vec = line(:,3:4) - line(:,1:2);
-c2l = line(:,1:2) - CC;
-a   = dot(vec,vec,2);
-b   = 2*dot(c2l,vec,2);
-c   = dot(c2l,c2l,2) - dot(CR,CR,2);
-
-dist    = (b.*b - 4*a.*c);
-lineHit = dist>=0;
-distSqr = sqrt(dist(lineHit));
-
-%t(:,1) = -b - distSqr./(2*a); % This is the intersection on wrong side.
-t = -b + distSqr./(2*a);
-p = bsxfun(@times,vec,t) + line(:,1:2);
-
-
-end
 
 
 

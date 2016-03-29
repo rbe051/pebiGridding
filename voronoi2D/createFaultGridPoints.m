@@ -1,27 +1,99 @@
+function [F] = createFaultGridPoints(F,faultGridSize,circleFactor,fCut,fwCut) 
+% Places fault grid points on both sides of a fault
+% Arguments:
+%   faultLine       k*n array of points, [x,y], describing the fault
+%   fracDs          Desired distance between fault points
+%   circleFactor    ratio between fracDs and circles used to create
+%                   points
+%
+% varargin:
+%   distFunc        Function setting the grid spacing
+%
+% Returns:
+%   Pts             Fault points
+%   gridSpacing     Grid spacing for each fault point
+%   circCenter      Center of each circle used for creating the fault
+%                   points
+%   circRadius      The radius of the above circles
+%   f2c             Mapping from fault points to circles.
+%   c2f             Mapping from circles to fault points
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for i = 1:F.lines.nFault  % create fault points
+  faultLine      = F.lines.lines{i};
+  sePtn         = .5*[fwCut(i)==2|fwCut(i)==3; fwCut(i)==1|fwCut(i)==3];
+  [p, fracSpace, fCi, fRi, f2ci,cPos, c2fi,fPos] =   ...
+                          faultLinePts(faultLine,     ... 
+                                       faultGridSize,...
+                                       circleFactor, ...
+                                       fCut(i),sePtn);
+  nl = size(p,1)/2;
+  if nl==0 % No fault points created
+    F.lines.faultPos = [F.lines.faultPos; F.lines.faultPos(end)];
+    continue
+  end
+  F.f.Gs          = [F.f.Gs;fracSpace];
+  F.lines.faultPos = [F.lines.faultPos; size(F.f.pts,1)+1+size(p,1)];
+  F.f.pts         = [F.f.pts;p];
+  F.c.CC     = [F.c.CC; fCi];
+  F.c.R      = [F.c.R; fRi]; 
+  F.f.c         = [F.f.c; f2ci + size(F.c.fPos,1)-1];
+  F.f.cPos      = [F.f.cPos; cPos(2:end) + F.f.cPos(end)-1];
+  F.c.f      = [F.c.f; c2fi + size(F.f.pts,1)-nl*2];
+  F.c.fPos   = [F.c.fPos; fPos(2:end) + F.c.fPos(end)-1];
+end
+
+% Add well-fault crossings
+% write this as a function
+endCirc = F.f.c(F.f.cPos(F.lines.faultPos([false;fwCut==1|fwCut==3]))-1);
+strCirc = F.f.c(F.f.cPos(F.lines.faultPos(fwCut==2|fwCut==3)));
+p       = circCircInt(F.c.CC(strCirc,:), F.c.R(strCirc),...
+                      F.c.CC(endCirc,:), F.c.R(endCirc));
+fId = (size(F.f.pts,1)+1:size(F.f.pts,1) + size(p,1))';
+fId = reshape(fId,2,[]);
+fId = repmat(fId,2,1);
+cId = reshape([strCirc,endCirc]',[],1);
+c2fId = repmat(F.c.fPos(cId)',2,1);
+c2fId = c2fId(:);
+
+F.f.pts = [F.f.pts;p];
+nGs   = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
+F.f.Gs  = [F.f.Gs;reshape(nGs(:,1:2:end),[],1)];
+F.c.fPos = F.c.fPos + ...
+  cumsum(accumarray([cId+1;size(F.c.fPos,1)],2*[ones(1,size(cId,1)),0]));
+F.c.f = insertVec(F.c.f, fId(:), c2fId);
+cId = repmat(reshape(cId,2,[]),2,1);
+F.f.cPos = [F.f.cPos;F.f.cPos(end)+2*cumsum(ones(size(p,1),1))];
+F.f.c = [F.f.c;cId(:)];
+
+
+
+% Remove duplicate fault Centers
+if ~isempty(F.f.pts)
+  [~, IA, IC] = uniquetol(F.c.CC,'byRows',true);
+  F.c.CC      = F.c.CC(IA,:);
+  F.c.R       = F.c.R(IA);
+  [~,I]       = sort(IC);
+  map         = [F.c.fPos(1:end-1), F.c.fPos(2:end)-1];
+  map         = map(I,:);
+  map         = arrayfun(@colon, map(:,1),map(:,2),'uniformOutput',false);
+  F.c.f = F.c.f(cell2mat(map'));
+  fNum        = diff(F.c.fPos);
+  F.c.fPos      = cumsum([1; accumarray(IC,fNum)]);
+  F.f.c = IC(F.f.c);
+  % Merge intersections
+  [F] = fixIntersections(F);
+%                      [faultPts, fR, f2c, f2cPos, center2fault,c2fPos] =...
+%       fixIntersections(faultPts, fC, fR, ...
+%                        f2c, f2cPos, c2f, c2fPos);
+end
+   
+end
+
 function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ...
-    createFaultGridPoints(faultLine, fracDs, circleFactor, isCut,sePtn, varargin) 
-    % Places fault grid points on both sides of a fault
-    % Arguments:
-    %   faultLine       k*n array of poits, [x,y] describing the fault
-    %   fracDs          Desired distance between fault points
-    %   circleFactor    ratio between fracDs and circles used to create
-    %                   points
-    %
-    % varargin:
-    %   distFunc        Function setting the grid spacing
-    %
-    % Returns:
-    %   Pts             Fault points
-    %   gridSpacing     Grid spacing for each fault point
-    %   circCenter      Center of each circle used for creating the fault
-    %                   points
-    %   circRadius      The radius of the above circles
-    %   f2c             Mapping from fault points to circles.
-    %   c2f             Mapping from circles to fault points
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+    faultLinePts(faultLine, fracDs, circleFactor, isCut,sePtn, varargin) 
+
     % Load options
     fh  = @(x) fracDs*constFunc(x);
     opt = struct('distFunc', fh);
@@ -92,9 +164,7 @@ function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ..
     c2f = c2f(3:end-2)';
     c2fPos = [1;(3:4:numel(c2f))';numel(c2f)+1];
     gridSpacing = 2*[faultOffset;faultOffset];
-    
 end
-
 
 function [p] = interFaultLine(line, fh, lineDist,sePtn, varargin)
     % Interpolate a fault line. 
@@ -210,6 +280,156 @@ function [newPoints] = interpLine(path, dt)
     newX = interp1(t,path(:,1),newPtsEval);
     newY = interp1(t,path(:,2),newPtsEval);
     newPoints = [newX,newY];
+end
+
+
+
+function [F] = fixIntersections(F)
+  TOL = 10*eps;
+  assert(all(diff(F.f.cPos)==2),'all points must be created from exactly 2 circles');
+  
+  % Find conflict circles
+  I = conflictCircles(F.f.pts, F.c.CC, F.c.R);
+  
+  circ    = find(~cellfun(@isempty,I));
+  if isempty(circ)
+    return
+  end
+  circNum = cellfun(@numel, I(circ));
+  id      = zeros(sum(circNum),1);
+  circPos = cumsum([1; circNum]);
+  id(circPos(1:end-1)) = 1;
+  id      = cumsum(id);
+  circ    = [circ(id), F.f.c([F.f.cPos(vertcat(I{circ})),...
+             F.f.cPos(vertcat(I{circ}))+1])];
+  
+  % Find shared circle
+  [neigh,neighPos] = findNeighbors(circ(:,1),F.c.f,F.c.fPos, F.f.c,F.f.cPos);
+  assert(all(diff(neighPos)==2));
+  
+  neigh  = reshape(neigh,2,[])';
+  shared = 2*any(bsxfun(@eq, neigh, circ(:,2)),2) ...
+          +3*any(bsxfun(@eq, neigh, circ(:,3)),2);
+  keep   = find(shared);
+  circ   = circ(keep,:);
+  swap   = shared(keep)==2;                % Set shared circle at third row
+  circ(swap,:) = [circ(swap,1),circ(swap,3),circ(swap,2)];
+  
+  % Remove duplicate pairs
+  [~,IA] = unique(sort(circ,2),'rows');
+  circ   = circ(IA,:);
+
+  % Calculate new radiuses
+  line = [F.c.CC(circ(:,3),:),reshape(mean(reshape(F.c.CC(circ(:,1:2)',:),2,[]),1),[],2)];
+  int  = lineCircInt(F.c.CC(circ(:,3),:),F.c.R(circ(:,3)), line);
+
+  % set radius to smallest
+  R = sqrt(sum((F.c.CC(circ(:,1:2),:)-[int;int]).^2,2));
+  I = false(size(circ(:,1:2)));
+  for i = 1:numel(R)
+    if R(i)<CR(circ(i))
+      F.c.R(circ(i)) = R(i);
+      I(circ(:,1:2)==circ(i)) = false;
+      I(i) = true;
+    elseif R(i)==F.c.R(circ(i))
+      I(i) = true;
+    end
+  end
+  c = unique(circ(:,1:2));
+
+  % Calculate new Pts
+  map = arrayfun(@colon,F.c.fPos(c),F.c.fPos(c+1)-1,'uniformOutput',false)';
+  fId = F.c.f(horzcat(map{:})');
+%   fId = unique(fId(:));
+%   fId = fId(~isnan(fId));
+
+  [neigh,neighPos] = findNeighbors(c, F.c.f,F.c.fPos, F.f.c,F.f.cPos); % I do this twice. hmm
+  assert(all(diff(neighPos)==2));
+  neigh = reshape(neigh,2,[])';
+  
+  p = circCircInt(F.c.CC(c,:), F.c.R(c),...
+                 reshape(F.c.CC(neigh',:)',4,[])',reshape(F.c.R(neigh),[],2));
+  assert(isreal(p),'Failed to merge fault crossings. Possible too sharp intersections');
+  F.f.pts(fId,:) = p;
+  map = [F.f.cPos(fId),F.f.cPos(fId)+1]';
+  F.f.c(map(:)) = [c';neigh(:,1)';c';neigh(:,1)';c';neigh(:,2)';c';neigh(:,2)'];%reshape(repmat([c',c';neigh(:,1)',neigh(:,2)'],2,1),2,[]);
+
+  [F.f.pts, ~, IC] = uniquetol(F.f.pts,'byRows',true);
+  [~,I] = sort(IC);
+  map = [F.f.cPos(1:end-1), F.f.cPos(2:end)-1];
+  map = map(I,:);
+  map = arrayfun(@colon, map(:,1),map(:,2),'uniformOutput',false);
+  F.f.c = F.f.c(cell2mat(map'));
+  cNum = diff(F.f.cPos);
+  F.f.cPos = cumsum([1;accumarray(IC,cNum)]);
+  F.c.f = IC(F.c.f);
+  for i = 1:numel(c)
+    f = F.c.f(F.c.fPos(c(i)):F.c.fPos(c(i)+1)-1,:);
+    b = plot(F.f.pts(f,1), F.f.pts(f,2),'.','markersize',20);
+    a = plot(F.c.CC(c(i),1), F.c.CC(c(i),2),'.','markersize',20);
+    delete(b)
+    delete(a)
+  end
+end
+
+function [neigh,neighPos] = findNeighbors(c, c2f,c2fPos, f2c,f2cPos)
+map   = arrayfun(@colon, c2fPos(c),c2fPos(c+1)-1,'uniformoutput',false);
+pId   = cellfun(@(c) c2f(c), map,'uniformOutput',false);
+neighMap = cellfun(@(c) cell2mat(arrayfun(@colon, f2cPos(c),f2cPos(c+1)-1,'uniformOutput',false)')...
+                    ,pId,'uniformOutput',false);
+neigh = cellfun(@(c) f2c(c),neighMap,'uniformOutput',false);
+neigh = cellfun(@unique, neigh,'uniformOutput',false);
+neigh = arrayfun(@(i) neigh{i}(neigh{i}~=c(i)),1:numel(neigh),'uniformOutput',false)';
+neighPos = cumsum([1;cellfun(@numel, neigh)]);
+neigh = vertcat(neigh{:});
+end
+
+
+function [p] = circCircInt(CC1, CR1, CC2,CR2)
+
+% Expand matrices for computation
+CC1 = repmat(CC1, 1,size(CC2,2)/size(CC1,2));
+CR1 = repmat(CR1, 1,size(CR2,2)/size(CR1,2));
+CC1 = reshape(CC1',2,[])';
+CC2 = reshape(CC2',2,[])';
+CR1 = reshape(CR1',1,[])';
+CR2 = reshape(CR2',1,[])';
+
+d = sqrt(sum((CC1 - CC2).^2,2));              % Distance between centers
+bisectPnt = (d.^2 - CR2.^2 + CR1.^2)./(2*d);  % Mid-Point
+faultOffset = sqrt(CR1.^2 - bisectPnt.^2);    % Pythagoras
+n1 = (CC2-CC1)./repmat(d,1,2);                % Unit vector
+n2 = [-n1(:, 2), n1(:,1)];                    % Unit normal
+
+% Set right left and right intersection points
+left   = CC1 + bsxfun(@times, bisectPnt, n1)  ...
+         + bsxfun(@times, faultOffset, n2);
+right  = CC1 + bsxfun(@times, bisectPnt, n1)  ...
+         - bsxfun(@times, faultOffset, n2);
+
+% Put result together
+p = reshape([right,left]',2,[])';
+
+end
+
+
+
+function [p] = lineCircInt(CC, CR, line)
+vec = line(:,3:4) - line(:,1:2);
+c2l = line(:,1:2) - CC;
+a   = dot(vec,vec,2);
+b   = 2*dot(c2l,vec,2);
+c   = dot(c2l,c2l,2) - dot(CR,CR,2);
+
+dist    = (b.*b - 4*a.*c);
+lineHit = dist>=0;
+distSqr = sqrt(dist(lineHit));
+
+%t(:,1) = -b - distSqr./(2*a); % This is the intersection on wrong side.
+t = -b + distSqr./(2*a);
+p = bsxfun(@times,vec,t) + line(:,1:2);
+
+
 end
 
 
