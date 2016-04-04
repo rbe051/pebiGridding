@@ -20,7 +20,7 @@ function [F] = createFaultGridPoints(F,faultGridSize,circleFactor,fCut,fwCut)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-for i = 1:F.lines.nFault  % create fault points
+for i = 1:F.lines.nFault
   faultLine     = F.lines.lines{i};
   sePtn         = .5*[fwCut(i)==2|fwCut(i)==3; fwCut(i)==1|fwCut(i)==3];
   [p, fracSpace, fCi, fRi, f2ci,cPos, c2fi,fPos] =   ...
