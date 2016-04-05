@@ -1,4 +1,5 @@
-function [F] = createFaultGridPoints(F,faultGridSize,circleFactor,fCut,fwCut) 
+function [F] = createFaultGridPoints(F,faultGridSize,circleFactor,fCut,fwCut,...
+                                     varargin) 
 % Places fault grid points on both sides of a fault
 % Arguments:
 %   faultLine       k*n array of points, [x,y], describing the fault
@@ -20,6 +21,12 @@ function [F] = createFaultGridPoints(F,faultGridSize,circleFactor,fCut,fwCut)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Load options
+fh  = @(x) faultGridSize*constFunc(x);
+opt = struct('distFunc', fh);
+opt = merge_options(opt, varargin{:});
+fh  = opt.distFunc;
+
 for i = 1:F.lines.nFault
   faultLine     = F.lines.lines{i};
   sePtn         = .5*[fwCut(i)==2|fwCut(i)==3; fwCut(i)==1|fwCut(i)==3];
@@ -27,7 +34,7 @@ for i = 1:F.lines.nFault
                           faultLinePts(faultLine,     ... 
                                        faultGridSize,...
                                        circleFactor, ...
-                                       fCut(i),sePtn);
+                                       fCut(i),sePtn,fh);
   nl = size(p,1)/2;
   if nl==0 % No fault points created
     F.lines.faultPos = [F.lines.faultPos; F.lines.faultPos(end)];
@@ -87,13 +94,8 @@ end
 end
 
 function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ...
-    faultLinePts(faultLine, fracDs, circleFactor, isCut,sePtn, varargin) 
+    faultLinePts(faultLine, fracDs, circleFactor, isCut,sePtn, fh) 
 
-    % Load options
-    fh  = @(x) fracDs*constFunc(x);
-    opt = struct('distFunc', fh);
-    opt = merge_options(opt, varargin{:});
-    fh  = opt.distFunc;
     assert(0.5<circleFactor && circleFactor<1)
     assert(size(faultLine,1)>1 && size(faultLine,2)==2);
     

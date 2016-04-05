@@ -1,222 +1,194 @@
 function G = pebiGrid(resGridSize, pdims, varargin)
-    % Creates a PEBI grid adapting to faults and well traces.
-    %
-    % Argumets:
-    %   resGridSize         Size of the reservoir grid cells
-    %   pdims               [xmax, ymax], array with the size of the square
-    %                       to be gridded.
-    %
-    % Varargin:
-    %   wellLines           A struct of arrays. Each array is the 
-    %                       coordinates of a well trace. If an
-    %                       array only contains one coordinate, the well is
-    %                       treated as a point well.
-    %   wellGridFactor      The relative grid size of the well grid cells
-    %                       compared to reservoir grid cells
-    %   wellRefinement      Logical scalar set to true if refinement
-    %                       towards wells is wanted
-    %   epsilon             Scale for grid refinement.
-    %   faultLines          A struct of arrays. Each array is the
-    %                       coordinates of a fault trace. 
-    %   faultGridFactor     The relative grid size of the fault grid cells
-    %                       compared to the reservoir grid cells
-    %   circleFactor        The relative radius of the circles used to
-    %                       create the fault cells.
-    %   priOrder            Array of length = number of wells + number of 
-    %                       faults. Sets the priority of well and fault 
-    %                       traces. First element set the priority of the
-    %                       first well, last element set the priority of
-    %                       the last fault.
-    %   fullFaultEdge       Set to true if you wish to guarantee the faults
-    %                       to be traced by edges in the PEBI grid
-    %
-    % Returns:
-    %   G                   A mrst grid structure. 
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-   
+% Construct a 2D Pebi grid.
+%
+% SYNOPSIS:
+%   G = compositePebiGrid(resGridSize, pdims)
+%   G = compositePebiGrid(...,'Name1',Value1,'Name2',Value2,...)
+%
+% PARAMETERS
+%   resGridSize       - Size of the reservoir grid cells, in units of
+%                       meters. 
+%   pdims             - Vector, length 2, [xmax, ymax], of physical size in
+%                       units of meters of the computational domain. 
+%
+%   wellLines         - OPTIONAL.
+%                       Default value empty. A struct of vectors. Each 
+%                       vector, size nw x 2, is the coordinates of a 
+%                       well-trace. The well is assumed to be linear 
+%                       between the coorinates. If the vector only contains 
+%                       one coordinate, the well is treated as a point well.
+%   wellGridFactor    - OPTIONAL.
+%                       Default value is 0.5. This gives the relative grid
+%                       size of the well grid cells compared to reservoir 
+%                       grid cells. If wellGridFactor=0.5 the well cells 
+%                       will be about half the size of the reservoir cells.
+%   wellRefinement    - OPTIONAL
+%                       Default value FALSE. Set to true to turn on
+%                       refinement around wells.
+%   epsilon           - OPTIONAL
+%                       Default value 0.25/max(pdims). epsilon set the
+%                       refinement transition around wells. The density
+%                       function for the reservoir grid is set by
+%                       rho~exp(-distance to well / epsilon).
+%   faultLines        - OPTIONAL
+%                       Default value empty. A struct of vectors.  Each 
+%                       vector, size nf x 2, is the coordinates of a 
+%                       fault-trace. The fault is assumed to be linear 
+%                       between the coorinates
+%   faultGridFactor   - OPTIONAL.
+%                       Default value is 0.5. This gives the relative grid
+%                       size of the fault grid cells compared to reservoir 
+%                       grid cells. If faultGridFactor=0.5 the fault cells 
+%                       will be about half the size of the reservoir cells.
+%   circleFactor      - OPTIONAL.
+%                       Default value 0.6.  Valid values are between 0.5 
+%                       and 1. circleFactor controll the size of the 
+%                       circles used to create the fault grid points. The 
+%                       circleFactor is the ratio between the radius, 
+%                       and distace between the circles. A small value will
+%                       place the fault points close the the faults, while
+%                       a large value will place the far from the faults.
+%   fullFaultEdge     - OPTIONAL.
+%                       Default value TRUE. If TRUE any points that
+%                       violate the sufficient fault condition will be
+%                       removed. This will guarantee that faults is traced
+%                       by edes in the  grid.
+%
+% RETURNS:
+%   G                - Valid grid definition.  
+%                        The fields
+%                          - G.cells.tag is TRUE for all well cells.
+%                          - G.faces.tag is TRUE for all fault edges. 
+%
+% EXAMPLE:
+%   fl = {[0.2,0.2;0.8,0.8]};
+%   wl = {[0.2,0.8;0.8,0.2]};
+%   G  = compositePebiGrid(1/10,[1,1],'wellLines',wl,'faultLines',fl)
+%   cla, plotGrid(G)
 
-    %% Set options
-    opt = struct('wellLines',       {{}}, ...
-                 'wellGridFactor',  0.5, ...
-                 'wellRefinement',  false, ...
-                 'epsilon',         -1,...
-                 'faultLines',      {{}}, ...
-                 'faultGridFactor', 0.5, ...
-                 'circleFactor',    0.6, ...
-                 'priOrder',        []);  
-             
-    opt          = merge_options(opt, varargin{:});
-    circleFactor = opt.circleFactor;
-	wellRef      =  opt.wellRefinement;
-    wellEps      = opt.epsilon; % For grid refinement.
-    % Set grid sizes
-    wellGridFactor  = opt.wellGridFactor;
-    faultGridFactor = opt.faultGridFactor;
-    wellGridSize    = resGridSize*wellGridFactor;
-    faultGridSize   = resGridSize*faultGridFactor;
+  %{
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
+%
+% distMesh is used to create the background grid 
+% (http://persson.berkeley.edu/distmesh/)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%}  
 
-    if wellEps<0
-        wellEps = 0.25/max(pdims);
-    end
-    
-    % Load faults and Wells
-    faultLines  = opt.faultLines;
-    wellLines   = opt.wellLines;
-    nFault      = numel(faultLines);
-    nWell       = numel(wellLines);
-    linesToGrid = [wellLines, faultLines{:}];
-    isWell      = [true(nWell,1); false(nFault,1)];
-    
-    % Set priority index
-    priOrder = opt.priOrder;
-    if isempty(priOrder)
-        priOrder = 1:nFault+nWell;
-    else
-        assert(numel(priOrder) == nFault + nWell);
-    end
-    % Sort faults and wells in priority
-    linesToGrid = linesToGrid(priOrder);
-    isWell      = isWell(priOrder);
-    
-    %% Test input
-    assert(resGridSize>0);
-    assert(numel(pdims)==2);
-    assert(all(pdims>0 ));
-    assert(wellGridSize>0);
-    assert(faultGridSize>0);
-    assert(0.5<circleFactor && circleFactor<1);
-    
-    %% Initialize variables.
-    faultType   = [];
-    wellType    = logical([]);
-    priIndex    = [];
-    gridSpacing = [];
-    fixedPts = [];
+% Set options
+opt = struct('wellLines',       {{}}, ...
+             'wellGridFactor',  0.5, ...
+             'wellRefinement',  false, ...
+             'epsilon',         -1,...
+             'faultLines',      {{}}, ...
+             'faultGridFactor', 0.5, ...
+             'circleFactor',    0.6);  
 
-    %% Place well points
-    lastFaultType = 0;
-    %lastCCid = 0;
-    for i = 1:nFault+nWell % From low priority to high
-        if isWell(i)
-            wellLine = linesToGrid{i};
-            [wellPts,wellSpace] = createWellGridPoints(wellLine, wellGridSize);
-            
-            np          = size(wellPts,1);
-            faultType   = [faultType; zeros(np,1)];
-            wellType    = [wellType; true(np,1)];
-            priIndex    = [priIndex; i*ones(np,1)];
-            gridSpacing = [gridSpacing; wellSpace];
-            fixedPts    = [fixedPts; wellPts];
-        end
-    end
-    %% create distance function
-    if wellRef && nWell>0
-        hres   = @(x) min((ones(size(x,1),1)/wellGridFactor), ...
-                      min(1.2*exp(pdist2(x,fixedPts(wellType,:))/wellEps),[],2));
-        hfault = @(x) wellGridSize*faultGridFactor*hres(x);
-    else
-    hres   = @(p) constFunc(p)/wellGridFactor;
-	hfault = @(p) constFunc(p)*faultGridSize;
-    end
-    
-    %% Place fault points
-    for i = 1:nFault + nWell
-       if ~isWell(i)
-           fracLine = linesToGrid{i};    
-           [faultPts, fracSpace,~,~,~] = createFaultGridPoints(fracLine,...
-                                                               faultGridSize,...
-                                                               circleFactor,...
-                                                              'distFunc', hfault);
-           nl = size(faultPts,1)/2;
-           if nl==0
-               continue
-           end
+opt          = merge_options(opt, varargin{:});
+circleFactor = opt.circleFactor;
+wellRef      =  opt.wellRefinement;
+wellEps      = opt.epsilon;
 
-           newFaultType  = lastFaultType+1:lastFaultType+nl;
-           lastFaultType = newFaultType(end);
-           faultType     = [faultType; newFaultType';newFaultType'];
-           wellType      = [wellType; false(2*nl,1)];
-           priIndex      = [priIndex; i*ones(2*nl,1)]; 
-           gridSpacing   = [gridSpacing;fracSpace];
-           fixedPts      = [fixedPts;faultPts];
-       end
-    end
-    
+% Set grid sizes
+wellGridFactor  = opt.wellGridFactor;
+faultGridFactor = opt.faultGridFactor;
+wellGridSize    = resGridSize*wellGridFactor;
+faultGridSize   = resGridSize*faultGridFactor;
+if wellEps<0
+    wellEps = 0.25/max(pdims);
+end
 
-    %% Remove fault and well conflic points
-    if size(fixedPts,1)>1
-        [fixedPts, wellType, removed]=removeConflictPoints(fixedPts, ...
-                                                           gridSpacing,...
-                                                           priIndex, ...
-                                                           wellType);        
-        faultType   = faultType(~removed);
-        gridSpacing = gridSpacing(~removed);
-        priIndex    = priIndex(~removed);
-    end
-    
+% Test input
+assert(resGridSize>0);
+assert(numel(pdims)==2);
+assert(all(pdims>0 ));
+assert(wellGridSize>0);
+assert(faultGridSize>0);
+assert(0.5<circleFactor && circleFactor<1);
+
+% Load faults and Wells
+faultLines                = opt.faultLines;
+wellLines                 = opt.wellLines;
+[faultLines, fCut, fwCut] = splitFaults(faultLines, wellLines);
+[wellLines,  ~, wfCut]    = splitWells(opt.faultLines, wellLines);
+
+F.lines.nFault      = numel(faultLines);
 
 
-    %% Create Reservoir grid points
-    % set dist function
-    x = pdims;
-    rectangle = [0,0; x(1),x(1)];   
-    fd = @(p) drectangle(p, 0, x(1), 0, x(2));
-    % Set fixed points
-    corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
+% Initialize variables.
+F.f.Gs    = [];                % Fault point grid size
+F.f.pts   = [];                % Fault points
+F.c.CC    = [];                % Center of circle used to create fault pts
+F.c.R     = [];                % Radius of the circle
+F.f.c     = [];                % Map from a fault to the circle center
+F.f.cPos  = 1;                 
+F.c.f     = [];                % Map from the circle center to a fault  
+F.c.fPos  = 1;
+F.lines.faultPos  = 1;         % Map frm fault lines to fault points
+F.lines.lines = faultLines;
+
+% Create well Points
+[wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize, wfCut);
+
+% create distance functions
+if wellRef && ~isempty(wellPts)
+    hres   = @(x) min((ones(size(x,1),1)/wellGridFactor), ...
+                  min(1.2*exp(pdist2(x,wellPts)/wellEps),[],2));
+    hfault = @(x) wellGridSize*faultGridFactor*hres(x);
+else
+hres   = @(p) constFunc(p)/wellGridFactor;
+hfault = @(p) constFunc(p)*faultGridSize;
+end
+
+% Create fault points
+F = createFaultGridPoints(F, faultGridSize, circleFactor, fCut,...
+                          fwCut, 'distFunc', hfault);
+
+% Create Reservoir grid points
+% set domain function
+x = pdims;
+rectangle = [0,0; x(1),x(1)];   
+fd = @(p) drectangle(p, 0, x(1), 0, x(2));
+% Set fixed points
+corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
 
 
-    fixedPts = [fixedPts; corners];
-    [Pts,~,sorting] = distmesh2d(fd, hres, wellGridSize, rectangle, fixedPts);
+fixedPts = [F.f.pts; wellPts; corners];
 
-    nNewPts     = size(Pts,1) - size(faultType,1);
-    faultType   = [faultType;zeros(nNewPts,1)];
-    wellType    = [wellType;zeros(nNewPts,1)];
-    gridSpacing = [gridSpacing;zeros(nNewPts,1)];
-    priIndex    = [priIndex; max(priIndex) + ones(nNewPts,1)];
-    
-    Pts         = Pts(sorting,:);
-    faultType   = faultType(sorting);
-    wellType    = wellType(sorting);
-    gridSpacing = gridSpacing(sorting);
-    priIndex    = priIndex(sorting);
-    
-    %% Remove new conflict  points
-    [Pts, wellType, removed,]=removeConflictPoints(Pts, ...
-                                                   gridSpacing,...
-                                                   priIndex, ...
-                                                   wellType);        
-    faultType = faultType(~removed);
-    %gridSpacing = gridSpacing(~removed); % Should be added if used later
-    %priIndex = priIndex(~removed);
-    
-    %% Create grid
-    t    = delaunay(Pts);
-    % Fix boundary
-    pmid = (Pts(t(:,1),:)+Pts(t(:,2),:)+Pts(t(:,3),:))/3;% Compute centroids
-    t    = t(feval(fd,pmid)<-0.001*wellGridFactor,:);    % Keep interior triangles
+[Pts,~,sorting] = distmesh2d(fd, hres, wellGridSize, rectangle, fixedPts);
 
-    [Pts,t, ~, sorting] = fixmesh(Pts,t);
-    faultType           = faultType(sorting);
-    wellType            = wellType(sorting);
-    %gridSpacing = gridSpacing(sort); % Should be added if used later
-    %priIndex = priIndex(sort);
-    
-    G = triangleGrid(Pts, t);
-    G = pebi(G);
-    G = computeGeometry(G);
-    
-    %label fault faces.
-    N               = G.faces.neighbors + 1;
-    faultType       = [0; faultType];
-    ft1             = faultType(N(:,1));
-    ft2             = faultType(N(:,2));
-    G.faces.tag = logical(ft1==ft2 & ft1 > 0 & ft2 > 0);
-    
-    %Label well cells
-    G.cells.tag= logical(wellType);    
-    
+isFault = false(size(Pts,1),1); isFault(1:size(F.f.pts,1)) = true;
+isWell  = false(size(Pts,1),1); isWell(size(F.f.pts,1)+(1:size(wellPts,1)))= true;
+isFault = isFault(sorting);
+isWell  = isWell(sorting);
+isRes   = ~isFault & ~isWell;
+
+Pts = [Pts(isFault,:); Pts(isWell,:); Pts(isRes,:)];
+
+
+% Create grid
+t    = delaunay(Pts);
+% Fix boundary
+pmid = (Pts(t(:,1),:)+Pts(t(:,2),:)+Pts(t(:,3),:))/3;% Compute centroids
+t    = t(feval(fd,pmid)<-0.001*wellGridFactor,:);    % Keep interior triangles
+
+G = triangleGrid(Pts, t);
+G = pebi(G);
+G = computeGeometry(G);
+
+% label fault faces.
+if ~isempty(F.f.pts)
+  N      = G.faces.neighbors + 1;
+  f2cPos = [1;F.f.cPos; F.f.cPos(end)*ones(size(Pts,1)-size(F.f.pts,1),1)];
+  map1   = arrayfun(@colon, f2cPos(N(:,1)),f2cPos(N(:,1)+1)-1,'un',false);
+  map2   = arrayfun(@colon, f2cPos(N(:,2)),f2cPos(N(:,2)+1)-1,'un',false);
+  G.faces.tag = cellfun(@(c1,c2) numel(intersect(F.f.c(c1),F.f.c(c2)))>1, map1,map2);
+else
+  G.faces.tag = false(G.faces.num);
+end
+
+%Label well cells
+G.cells.tag = false(G.cells.num,1);
+G.cells.tag(size(F.f.pts,1)+1:size(F.f.pts,1)+size(wellPts,1))= true;
 end
 

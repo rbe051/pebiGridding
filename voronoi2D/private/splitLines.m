@@ -28,7 +28,7 @@ for i = 1:numel(L1)
     continue
   end
   newPts  = [diag(out.intMatrixX(j,k)), diag(out.intMatrixY(j,k))];
-  [~,I]  = sort(sum(bsxfun(@minus, newPts,l1(1:2)).^2,2));
+  [~,I]  = sort(sum(bsxfun(@minus, newPts,l1(1,1:2)).^2,2));
   newPts  = newPts(I,:);
   newPts  = repmat(newPts',2,1);
   newPts  = reshape(newPts(:),2,[])';

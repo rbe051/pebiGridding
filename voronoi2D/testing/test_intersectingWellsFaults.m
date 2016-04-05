@@ -24,8 +24,10 @@ l = {[x2',y2'], [x3',y3'],  [x5',y5'],[x1',y1'],[x4',y4']};
 
 %l = {[0.4,0.2;0.8,0.8],[0.5,0.25;0.6,0.9],[0.4,0.7;0.8,0.65]};     
 
-Gp = compositePebiGrid(1.155/50, [1, 1], 'faultLines', l, 'faultGridFactor', 1/1.155,...
+G = compositePebiGrid(1.155/50, [1, 1], 'faultLines', l, 'faultGridFactor', 1/1.155,...
                         'fullFaultEdge', 1, 'circleFactor', 0.6);
+Gp = pebiGrid(1.155/50, [1, 1], 'faultLines', l, 'faultGridFactor', 1/1.155,...
+                        'circleFactor', 0.6);
 
 plotGrid(Gp, 'faceColor', 'none')
 axis equal tight off
@@ -60,12 +62,19 @@ l = {[x2',y2'], [x3',y3'],  [x5',y5'],[x1',y1'],[x4',y4']};
 
 %l = {[0.4,0.2;0.8,0.8],[0.5,0.25;0.6,0.9],[0.4,0.7;0.8,0.65]};     
 
-Gp = compositePebiGrid(1.155/50, [1, 1], 'wellLines', l, 'wellGridFactor', 1/1.155);
-
-plotGrid(Gp, 'faceColor', 'none')
+Gp = compositePebiGrid(1.155/20, [1, 1], 'wellLines', l, 'wellGridFactor', 1/1.155);
+G = pebiGrid(1.155/20, [1, 1], 'wellLines', l, 'wellGridFactor', 1/1.155);
+plotGrid(G, 'faceColor', 'none')
 axis equal tight off
 hold on
 %plotFault(Gp)
+
+for i = 1:numel(l)
+  line = l{i};
+  plot(line(:, 1), line(:, 2),'r');
+end
+G = computeGeometry(G);
+plot(G.cells.centroids(G.cells.tag,1),G.cells.centroids(G.cells.tag,2),'.','markersize',15)
 
 %% Faults and wells intersecting
 x1 = [0,1];

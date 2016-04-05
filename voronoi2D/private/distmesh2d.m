@@ -76,7 +76,7 @@ N=size(p,1);                                         % Number of points N
 count=0;
 pold=inf;                                            % For first iteration
 clf,view(2),axis equal,axis off
-while 1 && count<maxIt
+while count<maxIt
   count=count+1;
   % 3. Retriangulation by the Delaunay algorithm
   if max(sqrt(sum((p-pold).^2,2))/h0)>ttol           % Any large movement?
@@ -127,5 +127,5 @@ if count == maxIt
 end
 
 % Clean up and plot final mesh
-[~,t, ~, sorting]=fixmesh(p,t);
-simpplot(p,t)
+[p,t, ~, sorting]=fixmesh(p,t);
+

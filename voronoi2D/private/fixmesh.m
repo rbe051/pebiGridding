@@ -9,7 +9,7 @@ if nargin>=2 & (isempty(p) | isempty(t)), pix=1:size(p,1); return; end
 
 sorting = (1:size(p,1))';
 snap=max(max(p,[],1)-min(p,[],1),[],2)*ptol;
-[foo,ix,jx]=unique(round(p/snap)*snap,'rows');
+[~,ix,jx]=unique(round(p/snap)*snap,'rows');
 p=p(ix,:);
 sorting = sorting(ix,:);
 

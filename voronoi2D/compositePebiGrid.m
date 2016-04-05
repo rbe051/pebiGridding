@@ -102,8 +102,8 @@ assert(faultGridSize>0);
 assert(0.5<circleFactor && circleFactor<1);
 
 % Load faults and Wells
-faultLines          = opt.faultLines;
-wellLines           = opt.wellLines;
+faultLines                = opt.faultLines;
+wellLines                 = opt.wellLines;
 [faultLines, fCut, fwCut] = splitFaults(faultLines, wellLines);
 [wellLines,  ~, wfCut]    = splitWells(opt.faultLines, wellLines);
 
@@ -124,8 +124,6 @@ F.lines.lines = faultLines;
 
 % Create fault and well points
 [wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,wfCut);
-
-% Create fault grid points
 F = createFaultGridPoints(F, faultGridSize, circleFactor, fCut, fwCut);
 
 % Create reservoir grid
