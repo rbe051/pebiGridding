@@ -20,14 +20,14 @@ for i = 1:numel(L1)
   l2      = [l2(1:end-1,:),l2(2:end,  :)];
   l2      = l2(keep(2:end-1),:);
   % Compute intersections
-  out     = lineSegmentIntersect(l1,l2);
-  [k,j]   = find(out.intAdjacencyMatrix');
+  [X,Y,segLin] = lineLineInt(l1,l2);
+  [k,j]   = find(segLin');
   if isempty(k)
     splitLines = [splitLines, L1(i)];
     isCut      = [isCut; 0];
     continue
   end
-  newPts  = [diag(out.intMatrixX(j,k)), diag(out.intMatrixY(j,k))];
+  newPts = [diag(X(j,k)), diag(Y(j,k))];
   [~,I]  = sort(sum(bsxfun(@minus, newPts,l1(1,1:2)).^2,2));
   newPts  = newPts(I,:);
   newPts  = repmat(newPts',2,1);

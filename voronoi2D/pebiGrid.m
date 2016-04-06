@@ -66,7 +66,7 @@ function G = pebiGrid(resGridSize, pdims, varargin)
 %   G  = compositePebiGrid(1/10,[1,1],'wellLines',wl,'faultLines',fl)
 %   cla, plotGrid(G)
 
-  %{
+%{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 %
@@ -128,7 +128,7 @@ F.lines.faultPos  = 1;         % Map frm fault lines to fault points
 F.lines.lines = faultLines;
 
 % Create well Points
-[wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize, wfCut);
+[wellPts, ~] = createWellGridPoints(wellLines, wellGridSize, wfCut);
 
 % create distance functions
 if wellRef && ~isempty(wellPts)

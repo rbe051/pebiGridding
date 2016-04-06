@@ -51,7 +51,7 @@ for i = 1:F.lines.nFault
   F.c.fPos         = [F.c.fPos; fPos(2:end) + F.c.fPos(end)-1];
 end
 
-% Add well-fault crossings
+% Add well-fault intersections
 if ~isempty(F.c.CC)
   endCirc = F.f.c(F.f.cPos(F.lines.faultPos([false;fwCut==1|fwCut==3]))-1);
   strCirc = F.f.c(F.f.cPos(F.lines.faultPos(fwCut==2|fwCut==3)));
@@ -74,8 +74,9 @@ if ~isempty(F.c.CC)
   F.f.cPos= [F.f.cPos;F.f.cPos(end)+2*cumsum(ones(size(p,1),1))];
   F.f.c   = [F.f.c;cId(:)];
 end
-% Remove duplicate fault Centers
+% Merge fault intersections
 if ~isempty(F.f.pts)
+  % Remove duplicate fault centers
   [~, IA, IC] = uniquetol(F.c.CC,'byRows',true);
   F.c.CC      = F.c.CC(IA,:);
   F.c.R       = F.c.R(IA);
@@ -290,6 +291,7 @@ function [F] = fixIntersections(F)
   if isempty(circ)
     return
   end
+
   circNum = cellfun(@numel, I(circ));
   id      = zeros(sum(circNum),1);
   circPos = cumsum([1; circNum]);
@@ -313,7 +315,7 @@ function [F] = fixIntersections(F)
   % Remove duplicate pairs
   [~,IA] = unique(sort(circ,2),'rows');
   circ   = circ(IA,:);
-
+  
   % Calculate new radiuses
   line = [F.c.CC(circ(:,3),:),reshape(mean(reshape(F.c.CC(circ(:,1:2)',:),2,[]),1),[],2)];
   int  = lineCircInt(F.c.CC(circ(:,3),:),F.c.R(circ(:,3)), line);
@@ -331,14 +333,16 @@ function [F] = fixIntersections(F)
     end
   end
   c = unique(circ(:,1:2));
-
+  if size(c,2)>1
+    c = c';
+  end
   % Calculate new Pts
   map = arrayfun(@colon,F.c.fPos(c),F.c.fPos(c+1)-1,'uniformOutput',false)';
   fId = F.c.f(horzcat(map{:})');
 %   fId = unique(fId(:));
 %   fId = fId(~isnan(fId));
 
-  [neigh,neighPos] = findNeighbors(c, F.c.f,F.c.fPos, F.f.c,F.f.cPos); % I do this twice. hmm
+  [neigh,neighPos] = findNeighbors(c, F.c.f,F.c.fPos, F.f.c,F.f.cPos);
   assert(all(diff(neighPos)==2));
   neigh = reshape(neigh,2,[])';
   
@@ -361,13 +365,6 @@ function [F] = fixIntersections(F)
   cNum = diff(F.f.cPos);
   F.f.cPos = cumsum([1;accumarray(IC,cNum)]);
   F.c.f = IC(F.c.f);
-  for i = 1:numel(c)
-    f = F.c.f(F.c.fPos(c(i)):F.c.fPos(c(i)+1)-1,:);
-    b = plot(F.f.pts(f,1), F.f.pts(f,2),'.','markersize',20);
-    a = plot(F.c.CC(c(i),1), F.c.CC(c(i),2),'.','markersize',20);
-    delete(b)
-    delete(a)
-  end
 end
 
 
