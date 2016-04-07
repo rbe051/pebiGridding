@@ -134,7 +134,7 @@ vy = 0:dy:pdims(2);
 
 [X, Y] = meshgrid(vx, vy);
 
-resPtsInit = [X(:), Y(:)]; % Reservoir grid points before refinement
+resPtsInit = [X(:), Y(:)];
 
 % Refine reservoir grid
 if ~isempty(wellPts)

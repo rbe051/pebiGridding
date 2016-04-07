@@ -382,7 +382,10 @@ end
 
 
 function [p] = circCircInt(CC1, CR1, CC2,CR2)
-
+if isempty(CC1) || isempty(CC2)
+  p = [];
+  return
+end
 % Expand matrices for computation
 CC1 = repmat(CC1, 1,size(CC2,2)/size(CC1,2));
 CR1 = repmat(CR1, 1,size(CR2,2)/size(CR1,2));
