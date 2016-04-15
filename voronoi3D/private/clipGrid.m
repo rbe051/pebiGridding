@@ -1,4 +1,14 @@
-function [V, C, symV] = clipGrid(dt,bound)
+function [V, C, symV] = clipGrid(dt,bound,varargin)
+
+opt = struct('bisectN', [],...
+             'bisectX0',[]);
+           
+opt = merge_options(opt, varargin{:});
+
+bisectN = opt.bisectN;
+bisectX0 = opt.bisectX0;
+assert(size(bisectN,1)==size(bisectX0,1),'# of normals must equal # of x0')
+
 
 s = dsearchn(dt.Points,sum(bound.Points(bound.ConnectivityList(1,:),:)/3,1));
 
@@ -9,18 +19,21 @@ C = cell(size(dt.Points,1),1);
 CT = cell(numel(C),1);
 CT{s} = 1;
 E = dt.edges;
+nFac  = size(bound.ConnectivityList,1);
+bisId = -(nFac+(1:size(bisectN,1))');
+
 while ~isempty(Q)
     t =  Q(end,1); s = Q(end,2);
     Q = Q(1:end-1,:);
     NC = [E(:,2)==s, E(:,1)==s];
-    bisect = find(any(NC,2));
-
+    bisect = [find(any(NC,2)); bisId];
+    
     NT = findNeighbours(bound.ConnectivityList, t);    %sum(ismember(face2vert,face2vert(t,:)),2)==2;
 
 
     n = bsxfun(@minus, dt.Points(E(NC),:), dt.Points(s,:));
-    n = bsxfun(@rdivide, n,sqrt(sum(n.^2,2)));
-    x0 = bsxfun(@plus, dt.Points(E(NC),:), dt.Points(s,:))/2;
+    n = [bsxfun(@rdivide, n,sqrt(sum(n.^2,2))); bisectN];
+    x0 =[bsxfun(@plus, dt.Points(E(NC),:), dt.Points(s,:))/2; bisectX0];
 
 
     symT = {-find(any(bound.ConnectivityList==bound.ConnectivityList(t,1),2)); ...
@@ -33,7 +46,7 @@ while ~isempty(Q)
     symV = [symV; symT];
     C{s} = [C{s}, size(V,1)+1:size(V,1)+size(newVertex,1)];
     V = [V;newVertex];
-    [Q,CT] = updateQue(Q, symT, CT, E, NC, s, t);    
+    [Q,CT] = updateQue(Q, symT, CT, E, NC, s, t,-nFac);    
 
 end
 
@@ -61,11 +74,11 @@ function [symV] = updateSym(localSym, NC, NT)
 end
 
 
-function [Q, CT] = updateQue(Q, symV, CT, E, NC, s, t)
+function [Q, CT] = updateQue(Q, symV, CT, E, NC, s, t,tmin)
     % Find possible new cells
     symV = cell2mat(symV);
     bNew = unique(symV(symV>0));
-    tNew = -unique(symV(symV<0));
+    tNew = -unique(symV(tmin<=symV & symV<0));
     for i = 1:numel(bNew)
        if isempty(CT{E(bNew(i),NC(bNew(i),:))}) || ~any(CT{E(bNew(i),NC(bNew(i),:))}==t) %New cell facet pair
            Q = [Q; t, E(bNew(i),NC(bNew(i),:))];

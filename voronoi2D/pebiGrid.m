@@ -165,7 +165,6 @@ isRes   = ~isFault & ~isWell;
 
 Pts = [Pts(isFault,:); Pts(isWell,:); Pts(isRes,:)];
 
-
 % Create grid
 t    = delaunay(Pts);
 % Fix boundary

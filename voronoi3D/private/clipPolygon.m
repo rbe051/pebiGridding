@@ -1,5 +1,5 @@
 function [p, symP] = clipPolygon(p, n, x0, symP, symV, bisector)
-p0 = p;
+
 assert(size(n,1)==size(x0,1),'unconsistent size of n and x0');
 assert(size(p,1)>2, 'A polygon needs more than 2 vertexes');
 
@@ -44,14 +44,11 @@ for i = 1:size(n,1)
     p   = p(I,:);
     %IC = IC(I);
     symP = symP(I);
-
-    
 end
 
 
  
 end
-
 
 
 function [B] = intersectUnion(A, idx, b)
@@ -61,6 +58,7 @@ function [B] = intersectUnion(A, idx, b)
     end
     
 end
+
 
 function c = colonVec(a,b)
     c = arrayfun(@colon, a,b,'uniformOutput',false);

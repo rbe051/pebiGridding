@@ -380,7 +380,6 @@ neighPos = cumsum([1;cellfun(@numel, neigh)]);
 neigh = vertcat(neigh{:});
 end
 
-
 function [p] = circCircInt(CC1, CR1, CC2,CR2)
 if isempty(CC1) || isempty(CC2)
   p = [];
@@ -410,8 +409,6 @@ right  = CC1 + bsxfun(@times, bisectPnt, n1)  ...
 p = reshape([right,left]',2,[])';
 
 end
-
-
 
 function [p] = lineCircInt(CC, CR, line)
 vec = line(:,3:4) - line(:,1:2);

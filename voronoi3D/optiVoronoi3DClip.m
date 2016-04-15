@@ -56,27 +56,34 @@ function [f, g] = objectiveFunc(pts, bndr, fault, rho)
     G = computeGeometry(G);
     dt = delaunayTriangulation(pts);
     E = dt.edges();
-    [Vf,Cf,symF] = clipGrid(dt,fault);
+    [nF,x0F]     = normalOfThreePts(reshape(fault.Points(fault.ConnectivityList',:)',9,[])');
+    [nBdr,x0bdr] = normalOfThreePts(reshape(bndr.Points(bndr.freeBoundary',:)',9,[])');
+    
+    [Vf,Cf,symF] = clipGrid(dt,fault,'bisectN',nBdr,'bisectX0',x0bdr);
 
-    [n,x0] = normalPlanes(Vf,Cf); %OBS! This is simplified and subject to change.
+    %[n,x0] = normalPlanes(Vf,Cf); %OBS! This is simplified and subject to change.
+    n = [nF;nBdr]; x0 = [x0F;x0bdr];
+    
     cells = find(~cellfun(@isempty,Cf));
-    [Vb,Cb, symB] = VOuter(cells,symG,pts,Gt,G,dt,n,x0);
+    [Vb,Cb, symB] = VOuter(cells,symG,pts,Gt,G,dt,n(1,:),x0(1,:));
+
+    
     [V,C,symV,cutT] = mergeNodes(Vf,Cf,symF,fault,Vb,Cb,symB,bndr2D);
 
     [T, triPos, vol] = triang(V,C,cells);
-
+    
     gv = volumeGrad(G,V,T,triPos,cells,symV,pts,E,n, cutT)';
     
     intFun = @(x,i) sum(repmat(rho(x),1,3).*(x-repmat(pts(i,:),size(x,1),1)).^2,2);
     
     
     f = sum(polyhedronInt(G,1:G.cells.num, intFun));
-    f = f + vol;
+    f = 0*f + vol;
 
     massFun = @(x,i) rho(x);
     masses = polyhedronInt(G,1:G.cells.num,massFun);
     g = reshape((2*repmat(masses,1,3).*(pts - G.cells.centroids))',[],1);
-    g = g + 1*gv;
+    g = 0*g + 1*gv;
 end
 
 
@@ -101,6 +108,8 @@ for i = 1:numel(cells)
     T = [T;c(hull)]; 
     triPos(i+1) = triPos(i) + size(hull,1);  
     vol = vol+volAdd;
+    
+
 end
 end
 
@@ -134,8 +143,8 @@ for i=1:numel(c)
                           G.faces.nodePos(faces),...
                           G.faces.nodePos(faces+1)-1, 'un', 0)';
   nodes = unique(cell2mat(nodes'));
-  outer = sign((bsxfun(@minus,G.nodes.coords(nodes,:),x0(c(i),:)))*n') ...
-        ~=sign((s(c(i),:)-x0(c(i),:))*n');
+  outer = sign((bsxfun(@minus,G.nodes.coords(nodes,:),x0))*n') ...
+        ~=sign((s(c(i),:)-x0)*n');
   C{c(i)} = size(V,1)+1:size(V,1)+sum(outer);
   V = [V; G.nodes.coords(nodes(outer),:)];        
   symV = [symV;findBisector(G,Gt,symG,dt.edges,nodes(outer),c(i))];
@@ -181,20 +190,21 @@ end
 
 
 
-function [g] = volumeGrad(G,V,T,triPos,cells,symV,pts,E,n,bndr)
+function [g] = volumeGrad(G,V,T,triPos,cells,symV,pts,E,nF,bndr)
   g = zeros(1,numel(pts));
-  
+  vol = 0;
   for i = 1:numel(triPos)-1
     tri = T(triPos(i):triPos(i+1)-1,:);
     U = V(tri',:)-repmat(pts(i,:), numel(tri),1);
     for j = 1:size(tri,1)
       dvds = zeros(1,3);
+      vol =vol+ 1/6*dot(U(3*j-2,:), cross(U(3*j-1,:),U(3*j,:)));
       for k = 1:3
         switch k
           case 1
             Uact = U([3*j-1,3*j],:);
           case 2
-            Uact = U([3*j-2,3*j],:);
+            Uact = U([3*j,3*j-2],:);
           case 3 
             Uact = U([3*j-2,3*j-1],:); 
         end
@@ -206,17 +216,19 @@ function [g] = volumeGrad(G,V,T,triPos,cells,symV,pts,E,n,bndr)
           case 1
             bis = symV{tri(j,k)}(symV{tri(j,k)}>0);
             f =  symV{tri(j,k)}(symV{tri(j,k)}<0);
-
-            n = matrixNormals(bndr,-f(1),V(tri(j,k),:));
+            assert(numel(f)==2);
+            %n = matrixNormals(bndr,-f(1),V(tri(j,k),:));
+            n  = nF(-f,:);
+            
             s0 = cells(i);
             e = unique(E(bis,:));
             I = 1:numel(e);
             s0Id = e==s0;
             I = [I(s0Id), I(~s0Id)];
-            s2 = e(~s0Id);
-  
-            A = [(pts(s2,:)-pts(s0));n];
-            B = [(V(tri(j,k),:)-pts(s0,:)),(pts(s2,:)-V(tri(j,k),:)) ;...
+            s1 = e(~s0Id);
+
+            A = [(pts(s1,:)-pts(s0,:));n];
+            B = [(V(tri(j,k),:)-pts(s0,:)),(pts(s1,:)-V(tri(j,k),:)) ;...
                  zeros(2,6)];
             gradC = A\B;
             gradC = [zeros(3,3*(e(1)-1))     , gradC(:,3*I(1)-2:3*I(1)),...
@@ -235,10 +247,10 @@ function [g] = volumeGrad(G,V,T,triPos,cells,symV,pts,E,n,bndr)
             s0Id = e==s0;
             I = [I(s0Id), I(~s0Id)];
             s = e(~s0Id);
-            s2 = s(1); s3 = s(2);
-            A = [(pts(s2,:)-pts(s0));(pts(s3,:)-pts(s0));n(1,:)];
-            B = [V(tri(j,k),:)-pts(s0,:),(pts(s2,:)-V(tri(j,k),:)),zeros(1,3);...
-                 V(tri(j,k),:)-pts(s0,:), zeros(1,3), pts(s3,:)-V(tri(j,k),:);...
+            s1 = s(1); s2 = s(2);
+            A = [(pts(s1,:)-pts(s0,:));(pts(s2,:)-pts(s0,:));n(1,:)];
+            B = [V(tri(j,k),:)-pts(s0,:),(pts(s1,:)-V(tri(j,k),:)),zeros(1,3);...
+                 V(tri(j,k),:)-pts(s0,:), zeros(1,3), pts(s2,:)-V(tri(j,k),:);...
                  zeros(1,9)];
             [e,I] = sort(e);
             gradC = A\B;
@@ -255,11 +267,11 @@ function [g] = volumeGrad(G,V,T,triPos,cells,symV,pts,E,n,bndr)
             s0Id = e==s0;
             I = [I(s0Id), I(~s0Id)];
             s = e(~s0Id);
-            s2 = s(1); s3 = s(2); s4 = s(3);
-            A = [(pts(s2,:)-pts(s0));pts(s3,:)-pts(s0);pts(s4,:)-pts(s0)];
-            B = [V(tri(j,k),:)-pts(s0,:),(pts(s2,:)-V(tri(j,k),:)),zeros(1,6);...
-                 V(tri(j,k),:)-pts(s0,:), zeros(1,3), pts(s3,:)-V(tri(j,k),:),zeros(1,3);...
-                 V(tri(j,k),:)-pts(s0,:), zeros(1,6), pts(s4,:)-V(tri(j,k),:)];
+            s1 = s(1); s2 = s(2); s3 = s(3);
+            A = [(pts(s1,:)-pts(s0,:));pts(s2,:)-pts(s0,:);pts(s3,:)-pts(s0,:)];
+            B = [V(tri(j,k),:)-pts(s0,:),(pts(s1,:)-V(tri(j,k),:)),zeros(1,6);...
+                 V(tri(j,k),:)-pts(s0,:), zeros(1,3), pts(s2,:)-V(tri(j,k),:),zeros(1,3);...
+                 V(tri(j,k),:)-pts(s0,:), zeros(1,6), pts(s3,:)-V(tri(j,k),:)];
 
             gradC = A\B;
             gradC = [zeros(3,3*(e(1)-1))     ,gradC(:,3*I(1)-2:3*I(1)),...
@@ -280,6 +292,15 @@ function [g] = volumeGrad(G,V,T,triPos,cells,symV,pts,E,n,bndr)
 end
 
 
+function [n,x0] = normalOfThreePts(p)
+  assert(size(p,2)==9);
+  p0 = p(:,1:3); p1 = p(:,4:6); p2 = p(:,7:9);
+
+  n = cross(bsxfun(@minus, p1, p0),bsxfun(@minus, p2,p0));
+  n = bsxfun(@rdivide, n,sqrt(sum(n.^2,2)));
+  x0 = [mean(p(:,[1,4,7]),2),mean(p(:,[2,5,8]),2),mean(p(:,[3,6,9]),2)];
+
+end
 
 
 
@@ -291,7 +312,6 @@ function n = matrixNormals(bndr,f,V)
   n = cross(nodes(2,:)-nodes(1,:),nodes(3,:)-nodes(1,:));
   n = n/norm(n,2);
   n(2,:) = cross(n,vec);
-
 end
 
 

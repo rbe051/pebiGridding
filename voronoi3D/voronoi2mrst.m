@@ -25,6 +25,7 @@ function G = voronoi2mrst(V, C, aux, name)
         % Merge triangle faces into polygons
         [hull, localPos] = remParFaces(V, hull);
         hf           = [hf; hull];
+        localPos = unique(localPos);
         hf2NodePos   = [hf2NodePos; hf2NodePos(end)-1 + localPos(2:end)];
         facePos(i+1) = numel(hf2NodePos-1);
     end
@@ -87,7 +88,9 @@ function [faceNodes,nodePos, ic] = uniqueFace(hfNodes, hf2node)
         nodeID   = cell2mat(nodeID);
         tempFace = reshape(hfNodes(nodeID),faceSize(ias(i)),[]);
         tempFace = tempFace';
-        
+        if isempty(tempFace)
+          continue
+        end
         % Half faces with the same nodes are one face
         [~,ia2,ic2] = unique(sort(tempFace,2),'rows');
         temp        = tempFace(ia2,:)';

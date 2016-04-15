@@ -47,6 +47,7 @@ function [x,f,gNorm] = lbfgs(x0, F, dt, varargin)
         % find search direction
         p      = - twoLoopRec(g, H, s, y, m);
         % finde step length
+        
         alpha  = backTracking(F, x, p, dt);
         % take step
         x      = x + alpha*p;
@@ -101,12 +102,12 @@ end
 function [alpha] = backTracking(F, x, p, dt)
     alpha = 1; rho = 0.5; c = 1e-3;
     [f0, g0] = F(x);
-    while any(isnan(pointLocation(dt, reshape(x+alpha*p,3,[])')))
+    while any(isnan(pointLocation(dt, reshape(x+alpha*p,3,[])')))&& alpha>1e-16
         alpha = rho*alpha;
     end
     beta = f0 + c*alpha*g0'*p;
     [f1,~] = F(x+alpha*p);
-    while f1 > beta
+    while f1 > beta && alpha>1e-16
         alpha  = rho*alpha;
         [f1,~] = F(x+alpha*p);
     end
