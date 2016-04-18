@@ -1,34 +1,125 @@
-function [F] = createFaultGridPoints(F,faultGridSize,circleFactor,fCut,fwCut,...
-                                     varargin) 
-% Places fault grid points on both sides of a fault
-% Arguments:
-%   faultLine       k*n array of points, [x,y], describing the fault
-%   fracDs          Desired distance between fault points
-%   circleFactor    ratio between fracDs and circles used to create
-%                   points
+function [F] = createFaultGridPoints(faultLines,faultGridSize, varargin) 
+% Places fault grid points on both sides of faults.
 %
-% varargin:
-%   distFunc        Function setting the grid spacing
+% SYNOPSIS:
+%   F = createFaultGridPoints(F,faultGridSize)
+%   F = createFaultGridPoints(..., 'Name1', Value1, 'Name2', Value2, ...)
 %
-% Returns:
-%   Pts             Fault points
-%   gridSpacing     Grid spacing for each fault point
-%   circCenter      Center of each circle used for creating the fault
-%                   points
-%   circRadius      The radius of the above circles
-%   f2c             Mapping from fault points to circles.
-%   c2f             Mapping from circles to fault points
+% Parameters:
+%   faultLine       A cell of arrays. Each nx2 array in the cell contains 
+%                   the piecewise linear approximation of a fault. The 
+%                   values must be sorted along the line, e.g., a fault 
+%                   consisting of two lines would be [x1,y1; x2,y2; x3,y3].
+%                      .----------.-------------.
+%                   (x1,y1)    (x2,y2)       (x3,y3)
+%
+%   faultGridSize   Desired distance between fault points along a fault.
+%                   The true distance is set such that it is a factor of 
+%                   the total fault length, and therefore might be slightly
+%                   smaller than the desired distance.
+%   
+%   circleFactor    - OPTIONAL.
+%                   Default value 0.6. The ratio between faultGridSize and 
+%                   the radius of the circles used to create the points. If
+%                   circleFactor is increased, the distance between the 
+%                   fault and the points are increased. Valid values for
+%                   circleFactor are in the interval (0.5,1.0).
+%
+%   distFun         - OPTIONAL.
+%                   Default value @(x) faultGridSize*constFunc(x). Function
+%                   handle that specify a relative fault grid size. If
+%                   distFun = @(x) 1-0.5*x(:,1), in the unit square, then
+%                   any any faults on the right side will have about twice
+%                   as many grid points as equivalent faults placed on the
+%                   left side. 
+%
+%   fCut            - OPTIONAL.
+%                   Default value array of zeros. Array of length equal the
+%                   number of faults. The value equals the output of the 
+%                   function [~, fCut,~]=splitFaults. The value of element
+%                   i tells if fault i share a start or end point with 
+%                   other faults. If the value is 1 it share an end point.
+%                   If the value is 2 it share a start point. If the value
+%                   is 3 it share both a start point and an end point.
+%
+%   fwCut           - OPTIONAL.
+%                   Default value array of zeros. Array of length equal the
+%                   number of faults. The value equals the output of the 
+%                   function [~,~, fwCut] = splitFaults. The value of 
+%                   element i tells if the start or end point of fault i 
+%                   should start half a step length from the start/end. If
+%                   the value is 1 it starts half a step length from the 
+%                   end. If the value is 2 it starts half a step length 
+%                   from the start. If the value is 3 it starts half a step
+%                   length from both the start and end.
+%
+% RETURNS:
+%   F               Struct with elements:
+%     F.f.pts       Point coordinates
+%     F.f.Gs        Grid spacing for each fault point. This is the distance
+%                   between the two points on oposite sides of a fault.
+%     F.f.c         Map from fault points to circles
+%     F.f.cPos      Fault point i was created using circle
+%                   F.f.c(F.f.cPos(i):F.f.cPos(i+1)-1).
+%     F.c.CC        Coordinates to circle centers
+%     F.c.R         Radius of circles
+%     F.c.f         Map from circles to fault points
+%     F.c.fPos      Circle i created fault points
+%                   F.c.f(F.c.fPos(i):F.c.fPos(i+1)-1)
+%     F.l.fPos      Fault points F.l.fPos(i):F.l.fPos(i+1)-1 is created
+%                   for fault i.
+%     F.l.l         faultLine from input.
+%
+% EXAMPLE
+%   fl = {[0.2,0.2;0.8,0.8]};
+%   gS = 0.1;
+%   F = createFaultGridPoints(fl,gS);
+%   figure(); hold on
+%   plot(fl{1}(:,1), fl{1}(:,2))
+%   plot(F.f.pts(:,1),F.f.pts(:,2),'.r','markersize',20)
+%
+% SEE ALSO:
+%   pebiGrid, compositePebiGrid, createWellGridPoints, splitFaults, pebi.
+
+%{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Load options
-fh  = @(x) faultGridSize*constFunc(x);
-opt = struct('distFunc', fh);
-opt = merge_options(opt, varargin{:});
-fh  = opt.distFunc;
+%}
 
-for i = 1:F.lines.nFault
-  faultLine     = F.lines.lines{i};
+% Load options
+
+fh  = @(x) faultGridSize*constFunc(x);
+opt = struct('distFun',     fh,  ...
+             'circleFactor', 0.6, ...
+             'fCut',         zeros(numel(faultLines),1), ...
+             'fwCut',        zeros(numel(faultLines),1));
+opt = merge_options(opt, varargin{:});
+
+fh           = opt.distFun;
+circleFactor = opt.circleFactor;
+fCut         = opt.fCut;
+fwCut        = opt.fwCut;
+
+
+% Initialize variables.
+F.f.Gs    = [];                % Fault point grid size
+F.f.pts   = [];                % Fault points
+F.f.c     = [];                % Map from a fault to the circle center
+F.f.cPos  = 1;                 
+
+F.c.CC    = [];                % Center of circle used to create fault pts
+F.c.R     = [];                % Radius of the circle
+F.c.f     = [];                % Map from the circle center to a fault  
+F.c.fPos  = 1;
+F.l.fPos = 1;          % Map frm fault lines to fault points
+F.l.l  = faultLines;
+F.l.nFault = numel(faultLines);
+
+
+
+for i = 1:F.l.nFault
+  faultLine     = F.l.l{i};
   sePtn         = .5*[fwCut(i)==2|fwCut(i)==3; fwCut(i)==1|fwCut(i)==3];
   [p, fracSpace, fCi, fRi, f2ci,cPos, c2fi,fPos] =   ...
                           faultLinePts(faultLine,     ... 
@@ -37,24 +128,24 @@ for i = 1:F.lines.nFault
                                        fCut(i),sePtn,fh);
   nl = size(p,1)/2;
   if nl==0 % No fault points created
-    F.lines.faultPos = [F.lines.faultPos; F.lines.faultPos(end)];
+    F.lines.faultPos = [F.l.fPos; F.l.fPos(end)];
     continue
   end
-  F.f.Gs           = [F.f.Gs;fracSpace];
-  F.lines.faultPos = [F.lines.faultPos; size(F.f.pts,1)+1+size(p,1)];
-  F.f.pts          = [F.f.pts;p];
-  F.c.CC           = [F.c.CC; fCi];
-  F.c.R            = [F.c.R; fRi]; 
-  F.f.c            = [F.f.c; f2ci + size(F.c.fPos,1)-1];
-  F.f.cPos         = [F.f.cPos; cPos(2:end) + F.f.cPos(end)-1];
-  F.c.f            = [F.c.f; c2fi + size(F.f.pts,1)-nl*2];
-  F.c.fPos         = [F.c.fPos; fPos(2:end) + F.c.fPos(end)-1];
+  F.f.Gs   = [F.f.Gs;fracSpace];
+  F.l.fPos = [F.l.fPos; size(F.f.pts,1)+1+size(p,1)];
+  F.f.pts  = [F.f.pts;p];
+  F.c.CC   = [F.c.CC; fCi];
+  F.c.R    = [F.c.R; fRi]; 
+  F.f.c    = [F.f.c; f2ci + size(F.c.fPos,1)-1];
+  F.f.cPos = [F.f.cPos; cPos(2:end) + F.f.cPos(end)-1];
+  F.c.f    = [F.c.f; c2fi + size(F.f.pts,1)-nl*2];
+  F.c.fPos = [F.c.fPos; fPos(2:end) + F.c.fPos(end)-1];
 end
 
 % Add well-fault intersections
 if ~isempty(F.c.CC)
-  endCirc = F.f.c(F.f.cPos(F.lines.faultPos([false;fwCut==1|fwCut==3]))-1);
-  strCirc = F.f.c(F.f.cPos(F.lines.faultPos(fwCut==2|fwCut==3)));
+  endCirc = F.f.c(F.f.cPos(F.l.fPos([false;fwCut==1|fwCut==3]))-1);
+  strCirc = F.f.c(F.f.cPos(F.l.fPos(fwCut==2|fwCut==3)));
   p       = circCircInt(F.c.CC(strCirc,:), F.c.R(strCirc),...
                         F.c.CC(endCirc,:), F.c.R(endCirc));
   fId     = (size(F.f.pts,1)+1:size(F.f.pts,1) + size(p,1))';
@@ -182,7 +273,7 @@ function [p] = interFaultLine(line, fh, lineDist,sePtn, varargin)
     % Create initial points, equally distributed.
     p = eqInterpret(line, lineDist,sePtn);
     % add auxillary points
-    if sePtn(1)~=0, p = [line(1,:);p]; end
+    if sePtn(1)~=0, p = [line(1,:);p];   end
     if sePtn(2)~=0, p = [p;line(end,:)]; end
     count=0;
     while count<maxIt
@@ -191,8 +282,8 @@ function [p] = interFaultLine(line, fh, lineDist,sePtn, varargin)
       d = distAlLine(line, p);
       pmid = (p(1:end-1,:) + p(2:end,:))/2;
       dw = fh(pmid,varargin{:});
-      if sePtn(1)~=0, dw(1) = dw(1).*sePtn(1);end
-      if sePtn(2)~=0, dw(end) = dw(end).*sePtn(2);end
+      if sePtn(1)~=0, dw(1)   = dw(1).*sePtn(1);   end
+      if sePtn(2)~=0, dw(end) = dw(end).*sePtn(2); end
 
       % Possible insert or remove points
       if sum(d - dw)>min(dw)

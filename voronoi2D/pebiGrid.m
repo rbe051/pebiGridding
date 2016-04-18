@@ -65,6 +65,9 @@ function G = pebiGrid(resGridSize, pdims, varargin)
 %   wl = {[0.2,0.8;0.8,0.2]};
 %   G  = compositePebiGrid(1/10,[1,1],'wellLines',wl,'faultLines',fl)
 %   cla, plotGrid(G)
+%
+% SEE ALSO
+%   compositePebiGrid, pebi, createFaultGridPoints, createWellGridPoints.
 
 %{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -109,26 +112,11 @@ assert(0.5<circleFactor && circleFactor<1);
 % Load faults and Wells
 faultLines                = opt.faultLines;
 wellLines                 = opt.wellLines;
-[faultLines, fCut, fwCut] = splitFaults(faultLines, wellLines);
-[wellLines,  ~, wfCut]    = splitWells(opt.faultLines, wellLines);
-
-F.lines.nFault      = numel(faultLines);
-
-
-% Initialize variables.
-F.f.Gs    = [];                % Fault point grid size
-F.f.pts   = [];                % Fault points
-F.c.CC    = [];                % Center of circle used to create fault pts
-F.c.R     = [];                % Radius of the circle
-F.f.c     = [];                % Map from a fault to the circle center
-F.f.cPos  = 1;                 
-F.c.f     = [];                % Map from the circle center to a fault  
-F.c.fPos  = 1;
-F.lines.faultPos  = 1;         % Map frm fault lines to fault points
-F.lines.lines = faultLines;
+[faultLines, fCut, fwCut] = splitAtInt(faultLines, wellLines);
+[wellLines,  ~, wfCut]    = splitAtInt(opt.wellLines, opt.faultLines);
 
 % Create well Points
-[wellPts, ~] = createWellGridPoints(wellLines, wellGridSize, wfCut);
+[wellPts, ~] = createWellGridPoints(wellLines, wellGridSize,'wfCut', wfCut);
 
 % create distance functions
 if wellRef && ~isempty(wellPts)
@@ -141,8 +129,8 @@ hfault = @(p) constFunc(p)*faultGridSize;
 end
 
 % Create fault points
-F = createFaultGridPoints(F, faultGridSize, circleFactor, fCut,...
-                          fwCut, 'distFunc', hfault);
+F = createFaultGridPoints(faultLines, faultGridSize,'circleFactor', circleFactor,...
+                          'fCut', fCut,'fwCut', fwCut, 'distFun', hfault);
 
 % Create Reservoir grid points
 % set domain function

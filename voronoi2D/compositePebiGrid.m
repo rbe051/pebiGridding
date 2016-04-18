@@ -66,6 +66,9 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 %   wl = {[0.2,0.8;0.8,0.2]};
 %   G  = compositePebiGrid(1/10,[1,1],'wellLines',wl,'faultLines',fl)
 %   cla, plotGrid(G)
+%
+% SEE ALSO
+%   compositePebiGrid, pebi, createFaultGridPoints, createWellGridPoints.
 
   %{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -104,27 +107,14 @@ assert(0.5<circleFactor && circleFactor<1);
 % Load faults and Wells
 faultLines                = opt.faultLines;
 wellLines                 = opt.wellLines;
-[faultLines, fCut, fwCut] = splitFaults(faultLines, wellLines);
-[wellLines,  ~, wfCut]    = splitWells(opt.faultLines, wellLines);
+[faultLines, fCut, fwCut] = splitAtInt(faultLines, wellLines);
+[wellLines,  ~, wfCut]    = splitAtInt(opt.wellLines, opt.faultLines);
 
-F.lines.nFault      = numel(faultLines);
-%nWell               = numel(wellLines);
-
-% Initialize variables.      
-F.f.Gs    = [];                % Fault point grid size
-F.f.pts   = [];                % Fault points
-F.c.CC    = [];                % Center of circle used to create fault pts
-F.c.R     = [];                % Radius of the circle
-F.f.c     = [];                % Map from a fault to the circle center
-F.f.cPos  = 1;                 
-F.c.f     = [];                % Map from the circle center to a fault  
-F.c.fPos  = 1;
-F.lines.faultPos  = 1;         % Map frm fault lines to fault points
-F.lines.lines = faultLines;
 
 % Create fault and well points
-[wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,wfCut);
-F = createFaultGridPoints(F, faultGridSize, circleFactor, fCut, fwCut);
+[wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,'wfCut',wfCut);
+F = createFaultGridPoints(faultLines, faultGridSize, 'circleFactor', circleFactor,...
+                          'fCut',fCut,'fwCut', fwCut);
 
 % Create reservoir grid
 dx = pdims(1)/ceil(pdims(1)/resGridSize);

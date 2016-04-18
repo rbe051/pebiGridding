@@ -28,11 +28,13 @@ G = compositePebiGrid(1.155/50, [1, 1], 'faultLines', l, 'faultGridFactor', 1/1.
                         'fullFaultEdge', 1, 'circleFactor', 0.6);
 Gp = pebiGrid(1.155/50, [1, 1], 'faultLines', l, 'faultGridFactor', 1/1.155,...
                         'circleFactor', 0.6);
-
+figure()
+plotGrid(G)                  
+figure()
 plotGrid(Gp, 'faceColor', 'none')
 axis equal tight off
 hold on
-%plotFault(Gp)
+
 
 for i = 1:numel(l)
   line = l{i};
@@ -64,6 +66,11 @@ l = {[x2',y2'], [x3',y3'],  [x5',y5'],[x1',y1'],[x4',y4']};
 
 Gp = compositePebiGrid(1.155/20, [1, 1], 'wellLines', l, 'wellGridFactor', 1/1.155);
 G = pebiGrid(1.155/20, [1, 1], 'wellLines', l, 'wellGridFactor', 1/1.155);
+
+figure()
+plotGrid(Gp)
+
+figure()
 plotGrid(G, 'faceColor', 'none')
 axis equal tight off
 hold on
@@ -92,7 +99,7 @@ lf ={[x3',y3'], [x4',y4']};
 
 Gp = compositePebiGrid(1.155/50, [1, 1], 'wellLines', lw, 'wellGridFactor', 1/1.155,...
                        'faultLines', lf,'faultGridFactor', 1/1.155);
-
+figure()
 plotGrid(Gp, 'faceColor', 'none')
 axis equal tight off
 hold on
