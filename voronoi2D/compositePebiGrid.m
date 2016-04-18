@@ -1,5 +1,5 @@
 function G = compositePebiGrid(resGridSize, pdims, varargin)
-% Construct a 2D composite Pebi grid. A cartesian background grid is 
+% Construct a 2D composite Pebi grid. A cartesian background grid that is 
 % refined around faults and wells.
 %
 % SYNOPSIS:
@@ -70,7 +70,7 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 % SEE ALSO
 %   compositePebiGrid, pebi, createFaultGridPoints, createWellGridPoints.
 
-  %{
+%{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -133,17 +133,17 @@ if ~isempty(wellPts)
     for i = 1:size(resPtsInit,1)
         res = [res; mlqt(resPtsInit(i,:), wellPts, resGridSize, varArg{:})];
     end
-    resPts      = vec2mat([res{:,1}],2);
+    resPts = vec2mat([res{:,1}],2);
     %resGridSize = 0.5*[res{:,2}]';
 else
-    resPts      = resPtsInit;
+    resPts = resPtsInit;
     % resGridSize = repmat(0.5*min(dx,dy),size(resPts,1),1);
 end
 
 % Remove Conflic Points
 resPts = removeConflictPoints2(resPts, wellPts,  wGs);
 resPts = removeConflictPoints2(resPts, F.f.pts, F.f.Gs);
-resPts = enforceSufficientFaultCondition(resPts, F.c.CC, F.c.R);
+resPts = removeConflictPoints2(resPts, F.c.CC, F.c.R);
 
 % Create Grid
 Pts = [F.f.pts;wellPts; resPts];

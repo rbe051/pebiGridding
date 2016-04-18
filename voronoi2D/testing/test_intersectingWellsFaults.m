@@ -84,9 +84,9 @@ G = computeGeometry(G);
 plot(G.cells.centroids(G.cells.tag,1),G.cells.centroids(G.cells.tag,2),'.','markersize',15)
 
 %% Faults and wells intersecting
-x1 = [0,1];
-y1 = [0,1];
-x2 = [0,1];
+x1 = [0.1,.9];
+y1 = [0.1,.9];
+x2 = [0.1,.9];
 y2 = [0.3,0.2];
 lw = {[x1',y1'],[x2',y2']};
 
@@ -97,12 +97,17 @@ y4 = [0.8,0.6];
 lf ={[x3',y3'], [x4',y4']};
   
 
-Gp = compositePebiGrid(1.155/50, [1, 1], 'wellLines', lw, 'wellGridFactor', 1/1.155,...
+Gp = compositePebiGrid(1.155/50, [1, 1], 'wellLines', lw, 'wellGridFactor', 1/4,...
+                       'mlqtMaxLevel',2,...
+                       'faultLines', lf,'faultGridFactor', 1/4);
+G  = pebiGrid(1.155/20,[1,1], 'wellLines', lw, 'wellGridFactor', 1/4,...
+             'wellRefinement',true,'epsilon',1/10,...
                        'faultLines', lf,'faultGridFactor', 1/1.155);
 figure()
 plotGrid(Gp, 'faceColor', 'none')
 axis equal tight off
 hold on
-%plotFault(Gp)
+figure()
+plotGrid(G)
 
 

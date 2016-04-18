@@ -1,24 +1,55 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-This matlab code was written as a part of my specialization project during the 
-fall of 2015. The project is a part of my masters thesis and was written in 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+This matlab code was written as a part of my master thesis during the 
+fall of 2015 and spring of 2016. My masters thesis is written in 
 cooperation with SINTEF ICT.
 Runar Lie Berge                                      (runarlb@stud.ntnu.no)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-There are two functions included for generating unstructured in MRST 
-(http://www.sintef.no/contentassets/8af8db2e42614f7fb94fb0c68f5bc256/mrst-book-2015.pdf).
+Voronoi-2D contains several functions for generating unstructured Voronoi
+grids (or Pebi grids) in MRST (http://www.sintef.no/MRST). The main focus 
+on this software is the construction of Pebi grids conforming to faults, 
+fractures or other geological structures. 
 
+Voronoi-2D supports two different types of structures.
+For the first structure type one wants cell edges to follow the 
+structure. For the second type, one wants cell centroids to follow 
+the structure. In Voronoi-2D is the first type of structure is exclusively 
+called for faults and the second type for wells. 
+
+
+Voronoi-2D contains the following functions
 Functions:
-    compositePebiGrid.m
-    pebiGrid.m
-    example.m
+    compositePebiGrid
+    createFaultGridPoints
+    createWellGridPoints
+    examples
+    pebiGrid
+    removeConflicPoints2
+    splitAtInt
 
-compositePebiGrid.m creates a semi-structured grid, by inserting voronoi
-seeds around wells and fractures.
+- compositePebiGrid is an interface function that can be called to create 
+a valid MRST grid structure. It creates a Pebi grid conforming to faults 
+and wells. The functions creates a semi-structured grid, by inserting 
+voronoi seeds around wells and fractures.
 
-pebiGrid.m creates a fully unstructured grid. It uses the software DistMesh.
-DistMesh is a software for creating unstructured delaunay triangulations:
-Per-Olof Persson and Gilbert Strang, "A Simple Mesh Generator in MATLAB,"
-SIAM Review Vol. 46 (2) 2004.
+- createFaultGridPoints creates points equiv distant on each side of the
+faults. 
 
-Example of how to run the code can be found in the script examples.m.
+- createWellGridPoints places points along well-lines.
+
+- examples is a script that contain examples for how one can use the 
+functions in Voronoi-2D.
+
+- pebiGrid is an interface function that can be called to create a valid 
+MRST grid structure. It creates a fully unstructured pebi grid that 
+conforms to faults and wells. It uses the software DistMesh to create the 
+background grid. DistMesh is a software for creating unstructured delaunay 
+triangulations: Per-Olof Persson and Gilbert Strang, "A Simple Mesh 
+Generator in MATLAB," SIAM Review Vol. 46 (2) 2004.
+
+- removeConflicPoints2 removes any points from one set that are too close 
+to points from another set. This function can be used to remove small or
+constricted cells.
+
+- splitAtInt is a function that splits a set of pahts at each intersection.
+It can be used to split all faults and wells at their intersections.
