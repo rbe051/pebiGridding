@@ -112,7 +112,7 @@ F.c.CC    = [];                % Center of circle used to create fault pts
 F.c.R     = [];                % Radius of the circle
 F.c.f     = [];                % Map from the circle center to a fault  
 F.c.fPos  = 1;
-F.l.fPos = 1;          % Map frm fault lines to fault points
+F.l.fPos = 1;                  % Map frm fault lines to fault points
 F.l.l  = faultLines;
 F.l.nFault = numel(faultLines);
 
