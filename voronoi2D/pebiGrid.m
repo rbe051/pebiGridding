@@ -144,14 +144,20 @@ corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
 fixedPts = [F.f.pts; wellPts; corners];
 
 [Pts,~,sorting] = distmesh2d(fd, hres, wellGridSize, rectangle, fixedPts);
-
+% Distmesh change the order of all points. We undo this sorting.
 isFault = false(size(Pts,1),1); isFault(1:size(F.f.pts,1)) = true;
-isWell  = false(size(Pts,1),1); isWell(size(F.f.pts,1)+(1:size(wellPts,1)))= true;
 isFault = isFault(sorting);
+[~,If]   = sort(sorting(isFault));
+isWell  = false(size(Pts,1),1); isWell(size(F.f.pts,1)+(1:size(wellPts,1)))= true;
 isWell  = isWell(sorting);
+[~,Iw]   = sort(sorting(isWell));
 isRes   = ~isFault & ~isWell;
 
-Pts = [Pts(isFault,:); Pts(isWell,:); Pts(isRes,:)];
+fPts = Pts(isFault,:);
+fPts = fPts(If,:);
+wPts = Pts(isWell,:);
+wPts = wPts(Iw,:);
+Pts = [fPts; wPts; Pts(isRes,:)];
 
 % Create grid
 t    = delaunay(Pts);
@@ -164,6 +170,19 @@ G = pebi(G);
 G = computeGeometry(G);
 
 % label fault faces.
+% if ~isempty(F.f.pts)
+%   N      = G.faces.neighbors + 1;
+%   f2cPos = [1;F.f.cPos; F.f.cPos(end)*ones(size(Pts,1)-size(F.f.pts,1),1)];
+%   map1   = arrayfun(@colon, f2cPos(N(:,1)),f2cPos(N(:,1)+1)-1,'un',false);
+%   map2   = arrayfun(@colon, f2cPos(N(:,2)),f2cPos(N(:,2)+1)-1,'un',false);
+%   G.faces.tag = cellfun(@(c1,c2) numel(intersect(F.f.c(c1),F.f.c(c2)))>1, map1,map2);
+% else
+%   G.faces.tag = false(G.faces.num);
+% end
+% 
+% %Label well cells
+% G.cells.tag = false(G.cells.num,1);
+% G.cells.tag(size(F.f.pts,1)+1:size(F.f.pts,1)+size(wellPts,1))= true;
 if ~isempty(F.f.pts)
   N      = G.faces.neighbors + 1;
   f2cPos = [1;F.f.cPos; F.f.cPos(end)*ones(size(Pts,1)-size(F.f.pts,1),1)];
@@ -177,5 +196,6 @@ end
 %Label well cells
 G.cells.tag = false(G.cells.num,1);
 G.cells.tag(size(F.f.pts,1)+1:size(F.f.pts,1)+size(wellPts,1))= true;
+G.cells.tag(F.l.fPos(end):size(F.f.pts,1)+1) = true;
 end
 

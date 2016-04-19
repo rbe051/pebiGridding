@@ -164,6 +164,7 @@ end
 %Label well cells
 G.cells.tag = false(G.cells.num,1);
 G.cells.tag(size(F.f.pts,1)+1:size(F.f.pts,1)+size(wellPts,1))= true;
+G.cells.tag(F.l.fPos(end):size(F.f.pts,1)+1) = true;
 end
 
 

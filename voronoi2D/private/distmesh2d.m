@@ -128,4 +128,5 @@ end
 
 % Clean up and plot final mesh
 [p,t, ~, sorting]=fixmesh(p,t);
+close
 

@@ -97,17 +97,23 @@ y4 = [0.8,0.6];
 lf ={[x3',y3'], [x4',y4']};
   
 
-Gp = compositePebiGrid(1.155/50, [1, 1], 'wellLines', lw, 'wellGridFactor', 1/4,...
-                       'mlqtMaxLevel',2,...
-                       'faultLines', lf,'faultGridFactor', 1/4);
+%Gp = compositePebiGrid(1.155/50, [1, 1], 'wellLines', lw, 'wellGridFactor', 1/4,...
+%                       'mlqtMaxLevel',2,...
+%                       'faultLines', lf,'faultGridFactor', 1/4);
 G  = pebiGrid(1.155/20,[1,1], 'wellLines', lw, 'wellGridFactor', 1/4,...
              'wellRefinement',true,'epsilon',1/10,...
                        'faultLines', lf,'faultGridFactor', 1/1.155);
+G = computeGeometry(G);
+Gp =  computeGeometry(Gp);
 figure()
 plotGrid(Gp, 'faceColor', 'none')
 axis equal tight off
 hold on
+plot(Gp.cells.centroids(Gp.cells.tag,1), Gp.cells.centroids(Gp.cells.tag,2),'.','markersize',10)
+plot(Gp.faces.centroids(Gp.faces.tag,1), Gp.faces.centroids(Gp.faces.tag,2),'.','markersize',10)
 figure()
 plotGrid(G)
-
-
+axis equal tight off
+hold on
+plot(G.faces.centroids(G.faces.tag,1), G.faces.centroids(G.faces.tag,2),'.','markersize',10)
+plot(G.cells.centroids(G.cells.tag,1), G.cells.centroids(G.cells.tag,2),'.','markersize',10)
