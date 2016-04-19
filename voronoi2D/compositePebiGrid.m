@@ -111,8 +111,10 @@ wellLines                 = opt.wellLines;
 [wellLines,  ~, wfCut]    = splitAtInt(opt.wellLines, opt.faultLines);
 
 
-% Create fault and well points
+% Create well points
 [wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,'wfCut',wfCut);
+
+% Create fault points
 F = createFaultGridPoints(faultLines, faultGridSize, 'circleFactor', circleFactor,...
                           'fCut',fCut,'fwCut', fwCut);
 

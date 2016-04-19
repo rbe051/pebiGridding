@@ -3,7 +3,8 @@ close all; clear
 %% Examples
 % example1: Single fault intersected by several wells 
 % example2: Complex wells intersecting
-ex = 3;
+% example3: 2.5D grid
+ex = 1;
 
 
 %% Generate grid
@@ -18,17 +19,16 @@ switch ex
         x     = linspace(0.2, 0.8, 10);
         y     = 0.8 - 0.5*x - 0.05* sin(6*pi*x);
         fault = {[x' , y']};
-        pri   = [2,3,1,4,5];
         Gp = compositePebiGrid(1/24, [1, 1], ...
                                'wellLines', wellLine, 'wellGridFactor', 0.5^2, ...
-                               'faultLines',fault, 'faultGridFactor', 1/sqrt(2),...
+                               'faultLines',fault, 'faultGridFactor', 1/2,...
                                'circleFactor', 0.6,'mlqtMaxLevel', 2, ...
-                               'mlqtLevelSteps',[0.06,0.025]', 'priOrder', pri);
+                               'mlqtLevelSteps',[0.06,0.025]');
         Gdist = pebiGrid(1/24, [1, 1], 'wellLines', wellLine, ...
                         'wellGridFactor', 0.5^2, 'wellRefinement', true, ...
                         'epsilon',1/12, ...
                         'faultlines', fault, 'circleFactor', .6,...
-                        'faultGridFactor', 1/sqrt(2),'priOrder', pri);
+                        'faultGridFactor', 1/sqrt(2));
     case 2
         fault    = {};
         x        = linspace(0.2,0.8);
