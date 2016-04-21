@@ -22,6 +22,10 @@ for i = 1:numel(L1)
   % Compute intersections
   [X,Y,segLin] = lineLineInt(l1,l2);
   [k,j]   = find(segLin');
+  if size(k,2)>1
+    k = k';
+    j = j';
+  end
   if isempty(k)
     splitLines = [splitLines, L1(i)];
     isCut      = [isCut; 0];

@@ -165,6 +165,8 @@ if ~isempty(F.c.CC)
   F.f.cPos= [F.f.cPos;F.f.cPos(end)+2*cumsum(ones(size(p,1),1))];
   F.f.c   = [F.f.c;cId(:)];
 end
+
+
 % Merge fault intersections
 if ~isempty(F.f.pts)
   % Remove duplicate fault centers
@@ -182,7 +184,6 @@ if ~isempty(F.f.pts)
   % Merge intersections
   [F]         = fixIntersections(F);
 end
-   
 end
 
 function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ...
@@ -456,6 +457,7 @@ function [F] = fixIntersections(F)
   cNum = diff(F.f.cPos);
   F.f.cPos = cumsum([1;accumarray(IC,cNum)]);
   F.c.f = IC(F.c.f);
+
 end
 
 

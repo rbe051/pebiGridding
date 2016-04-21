@@ -7,9 +7,16 @@ yellow = [0.9290,  0.6940, 0.1250];
 wells = {[0.5,0.2;0.5,0.8],[0.2,0.3;0.8,0.8]};
 ds = 0.1;
 
-[wells] = splitLines(wells, wells);
+[wells] = splitAtInt(wells, {});
 
-pts = createWellGridPoints(wells,ds,[0,0,0,0]);
+pts = createWellGridPoints(wells,ds);
+[X,Y] = meshgrid(0:ds:1,0:ds:1);
+resPts = [X(:),Y(:)];
+
+resPts = removeConflictPoints2(resPts, pts, 0.1*ones(size(pts,1),1));
+
+Gt = triangleGrid([pts;resPts]);
+G  = pebi(Gt);
 
 w1 = logical([1;1;1;1;0;0;0;0;0;0;0;0;1;1;1;1]);
 w2 = logical([0;0;0;0;1;1;1;1;0;1;1;1;0;0;0;0]);
@@ -29,3 +36,11 @@ plot(pts(ws,1),pts(ws,2),'.','color',yellow,'markersize',20);
 axis([0.3,0.7,0.35,0.75])
 axis off
 
+figure(); hold on
+plotGrid(G,'facecolor','none')
+plot(pts(w1,1),pts(w1,2),'.','color',blue,'markersize',20);
+plot(pts(w2,1),pts(w2,2),'.','color',red,'markersize',20);
+plot(pts(ws,1),pts(ws,2),'.','color',yellow,'markersize',20);
+
+axis([0.3,0.7,0.35,0.75])
+axis off
