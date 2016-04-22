@@ -57,7 +57,7 @@ function [p,t, sorting]=distmesh2d(fd,fh,h0,bbox,pfix,varargin)
 %   Copyright (C) 2004-2012 Per-Olof Persson. See COPYRIGHT.TXT for details.
 
 dptol=.001; ttol=.1; Fscale=1.2; deltat=.2; geps=.001*h0; deps=sqrt(eps)*h0;
-densityctrlfreq=30; maxIt = 2000;
+densityctrlfreq=30; maxIt = 1000;
 
 % 1. Create initial distribution in bounding box (equilateral triangles)
 [x,y]=meshgrid(bbox(1,1):h0:bbox(2,1),bbox(1,2):h0*sqrt(3)/2:bbox(2,2));
@@ -75,7 +75,6 @@ N=size(p,1);                                         % Number of points N
 
 count=0;
 pold=inf;                                            % For first iteration
-clf,view(2),axis equal,axis off
 while count<maxIt
   count=count+1;
   % 3. Retriangulation by the Delaunay algorithm
@@ -87,9 +86,6 @@ while count<maxIt
     % 4. Describe each bar by a unique pair of nodes
     bars=[t(:,[1,2]);t(:,[1,3]);t(:,[2,3])];         % Interior bars duplicated
     bars=unique(sort(bars,2),'rows');                % Bars as node pairs
-    % 5. Graphical output of the current mesh
-    cla,patch('vertices',p,'faces',t,'edgecol','k','facecol',[.8,.9,1]);
-    drawnow
   end
 
   % 6. Move mesh points based on bar lengths L and forces F
@@ -126,7 +122,6 @@ if count == maxIt
     warning('DistMesh did not converge in maximum number of iterations.')
 end
 
-% Clean up and plot final mesh
+% Clean up final mesh
 [p,t, ~, sorting]=fixmesh(p,t);
-close
 

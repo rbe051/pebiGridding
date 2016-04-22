@@ -22,6 +22,10 @@ for i = 1:numel(L1)
   % Compute intersections
   [X,Y,segLin] = lineLineInt(l1,l2);
   [k,j]   = find(segLin');
+  if size(k,2)>1
+    k = k';
+    j = j';
+  end
   if isempty(k)
     splitLines = [splitLines, L1(i)];
     isCut      = [isCut; 0];
@@ -49,7 +53,7 @@ for i = 1:numel(L1)
   splitLines = [splitLines,newLine];
   l2Pos      = linePos - cumsum(ones(size(linePos,1),1)) +1;
   linePos    = repmat(linePos, 1,numel(k));
-  [~, kLine] = max(bsxfun(@ge,linePos,k'),[],1);
+  [~, kLine] = max(bsxfun(@ge,l2Pos,k'),[],1);
   cutMat(i,kLine) = true;
   isCut      =[isCut;...
     [ones(numel(newLine)-1,1);endInt]+2*[startInt;ones(numel(newLine)-1,1)]];
