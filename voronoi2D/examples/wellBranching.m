@@ -6,11 +6,11 @@
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 
 
-close all; clear
+%close all; clear
 
 
 %% Set path to voronoi2D
-addpath ../
+%addpath ../
 
 %% Set well paths
 % voronoi2D store well as arrays in cells. Each row in 

@@ -22,7 +22,6 @@ Functions:
     compositePebiGrid
     createFaultGridPoints
     createWellGridPoints
-    examples
     pebiGrid
     removeConflicPoints2
     splitAtInt
@@ -37,9 +36,6 @@ given faults.
 
 - createWellGridPoints places points along given well-lines.
 
-- examples is a script that contain examples for how one can use the 
-functions in Voronoi-2D.
-
 - pebiGrid is an interface function that can be called to create a valid 
 MRST grid structure. It creates a fully unstructured pebi grid that 
 conforms to faults and wells. It uses the software DistMesh to create the 
@@ -53,3 +49,7 @@ constricted cells.
 
 - splitAtInt is a function that splits a set of paths at each intersection.
 It can be used to split all faults and wells at their intersections.
+
+
+EXAMPLES: 
+For examples see the subfolder voronoi2d/examples

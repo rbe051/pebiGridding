@@ -1,0 +1,11 @@
+% Example grids for voronoi-2D
+%
+% Files
+%   grid_2_5D.m         - Create a 2.5D grid with two faults and three
+%                         wells
+%   intWellAndFaults    - Create a grid with one well and several faults
+%                         intersecting it
+%   plotLinePath        - plot a fault line or a well line
+%   wellBranching       - Create a grid of two wells branching.
+
+% Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.

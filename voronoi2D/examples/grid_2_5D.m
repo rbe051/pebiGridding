@@ -8,7 +8,7 @@
 
 
 %% Set path to voronoi2D
-addpath ../
+%addpath ../
 
 %% Set well and fault paths
 % We start by creating wells and faults. We create three vertical wells and
@@ -26,8 +26,8 @@ well  = {[40,100], [350, 150], [160,140]};
 % and plot them
 figure(); hold on
 subplot(2,3,1)
-plotLinePath(well,'.','color','blue','markersize',15)
-plotLinePath(fault,'color','red')
+plotLinePath(well,'.','color','blue','markersize',15);
+plotLinePath(fault,'color','red');
 axis equal tight
 axis ([0,Lx,0,Ly])
 title('well & fault paths')
@@ -96,21 +96,4 @@ subplot(2,3,6);
 plotGrid(Gdist3D);
 axis equal tight
 title('2.5D grid')
-view(30,60)
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+view(30,60)        

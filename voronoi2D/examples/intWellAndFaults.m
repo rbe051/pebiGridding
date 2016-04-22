@@ -10,7 +10,7 @@
 
 
 %% Set path to voronoi2D
-addpath ../
+%addpath ../
 
 %% Set well and fault paths
 % voronoi2D store well and fault paths as arrays in cells. Each row in 
@@ -31,8 +31,8 @@ fault   = {[0.3,0.1;0.1,0.3],...
 % We now plot the well and fault to see how it looks like
 figure(); hold on
 subplot(1,3,1)
-plotLinePath(well,'color','blue')
-plotLinePath(fault,'color','red')
+plotLinePath(well,'color','blue');
+plotLinePath(fault,'color','red');
 axis equal tight
 axis equal tight
 axis ([0,1,0,1])
