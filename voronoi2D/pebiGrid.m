@@ -163,7 +163,7 @@ Pts = [fPts; wPts; Pts(isRes,:)];
 t    = delaunay(Pts);
 % Fix boundary
 pmid = (Pts(t(:,1),:)+Pts(t(:,2),:)+Pts(t(:,3),:))/3;% Compute centroids
-t    = t(feval(fd,pmid)<-0.001*wellGridFactor,:);    % Keep interior triangles
+t    = t(fd(pmid)<-0.001*wellGridFactor,:);    % Keep interior triangles
 
 G = triangleGrid(Pts, t);
 G = pebi(G);
