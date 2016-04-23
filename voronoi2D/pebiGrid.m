@@ -140,10 +140,11 @@ fd = @(p) drectangle(p, 0, x(1), 0, x(2));
 % Set fixed points
 corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
 
-
+% Add wells an faults as fixed points
 fixedPts = [F.f.pts; wellPts; corners];
 
 [Pts,~,sorting] = distmesh2d(fd, hres, wellGridSize, rectangle, fixedPts);
+
 % Distmesh change the order of all points. We undo this sorting.
 isFault = false(size(Pts,1),1); isFault(1:size(F.f.pts,1)) = true;
 isFault = isFault(sorting);
@@ -157,45 +158,47 @@ fPts = Pts(isFault,:);
 fPts = fPts(If,:);
 wPts = Pts(isWell,:);
 wPts = wPts(Iw,:);
-Pts = [fPts; wPts; Pts(isRes,:)];
+Pts  = [fPts; wPts; Pts(isRes,:)];
 
 % Create grid
 t    = delaunay(Pts);
 % Fix boundary
 pmid = (Pts(t(:,1),:)+Pts(t(:,2),:)+Pts(t(:,3),:))/3;% Compute centroids
-t    = t(feval(fd,pmid)<-0.001*wellGridFactor,:);    % Keep interior triangles
+t    = t(fd(pmid)<-0.001*wellGridFactor,:);    % Keep interior triangles
 
 G = triangleGrid(Pts, t);
 G = pebi(G);
-G = computeGeometry(G);
 
 % label fault faces.
-% if ~isempty(F.f.pts)
-%   N      = G.faces.neighbors + 1;
-%   f2cPos = [1;F.f.cPos; F.f.cPos(end)*ones(size(Pts,1)-size(F.f.pts,1),1)];
-%   map1   = arrayfun(@colon, f2cPos(N(:,1)),f2cPos(N(:,1)+1)-1,'un',false);
-%   map2   = arrayfun(@colon, f2cPos(N(:,2)),f2cPos(N(:,2)+1)-1,'un',false);
-%   G.faces.tag = cellfun(@(c1,c2) numel(intersect(F.f.c(c1),F.f.c(c2)))>1, map1,map2);
-% else
-%   G.faces.tag = false(G.faces.num);
-% end
-% 
-% %Label well cells
-% G.cells.tag = false(G.cells.num,1);
-% G.cells.tag(size(F.f.pts,1)+1:size(F.f.pts,1)+size(wellPts,1))= true;
 if ~isempty(F.f.pts)
-  N      = G.faces.neighbors + 1;
+  N      = G.faces.neighbors + 1; 
+  % N == 1 is now a boundary fault, so we have to add 1 to the start of 
+  % cPos.  We also add empty mapping for no fault pts.
   f2cPos = [1;F.f.cPos; F.f.cPos(end)*ones(size(Pts,1)-size(F.f.pts,1),1)];
   map1   = arrayfun(@colon, f2cPos(N(:,1)),f2cPos(N(:,1)+1)-1,'un',false);
   map2   = arrayfun(@colon, f2cPos(N(:,2)),f2cPos(N(:,2)+1)-1,'un',false);
   G.faces.tag = cellfun(@(c1,c2) numel(intersect(F.f.c(c1),F.f.c(c2)))>1, map1,map2);
 else
-  G.faces.tag = false(G.faces.num);
+  G.faces.tag = false(G.faces.num,1);
 end
 
 %Label well cells
-G.cells.tag = false(G.cells.num,1);
-G.cells.tag(size(F.f.pts,1)+1:size(F.f.pts,1)+size(wellPts,1))= true;
-G.cells.tag(F.l.fPos(end):size(F.f.pts,1)+1) = true;
+if ~isempty(wellPts)
+  G.cells.tag = false(G.cells.num,1);
+  % Add tag to all cells generated from wellPts
+  wellCells = size(F.f.pts,1)+1:size(F.f.pts,1)+size(wellPts,1);
+  G.cells.tag(wellCells)= true;
+  
+  % Add tag to well-fault crossings
+  endOfLine = fwCut==1 | fwCut==3;        % Crossing at end of fault
+  strOfLine = fwCut==2 | fwCut==3;        % Crossing at start of fault
+  fIde      = F.l.fPos([false;endOfLine]);
+  fIds      = F.l.fPos(strOfLine);
+  fToTag    = [F.l.f(mcolon(fIde - 2,fIde-1)); F.l.f(mcolon(fIds,fIds+1))];
+
+  G.cells.tag(fToTag) = true;
+else
+  G.cells.tag = false(G.cells.num,1);
+end
 end
 
