@@ -112,8 +112,9 @@ F.c.CC    = [];                % Center of circle used to create fault pts
 F.c.R     = [];                % Radius of the circle
 F.c.f     = [];                % Map from the circle center to a fault  
 F.c.fPos  = 1;
-F.l.fPos = 1;                  % Map frm fault lines to fault points
-F.l.l  = faultLines;
+F.l.f     = [];
+F.l.fPos  = 1;                  % Map frm fault lines to fault points
+F.l.l     = faultLines;
 F.l.nFault = numel(faultLines);
 
 
@@ -128,7 +129,7 @@ for i = 1:F.l.nFault
                                        fCut(i),sePtn,fh);
   nl = size(p,1)/2;
   if nl==0 % No fault points created
-    F.lines.faultPos = [F.l.fPos; F.l.fPos(end)];
+    F.l.fPos = [F.l.fPos; F.l.fPos(end)];
     continue
   end
   F.f.Gs   = [F.f.Gs;fracSpace];
@@ -141,20 +142,30 @@ for i = 1:F.l.nFault
   F.c.f    = [F.c.f; c2fi + size(F.f.pts,1)-nl*2];
   F.c.fPos = [F.c.fPos; fPos(2:end) + F.c.fPos(end)-1];
 end
+F.l.f = (1:F.l.fPos(end)-1)';
 
 % Add well-fault intersections
 if ~isempty(F.c.CC)
-  endCirc = F.f.c(F.f.cPos(F.l.fPos([false;fwCut==1|fwCut==3]))-1);
-  strCirc = F.f.c(F.f.cPos(F.l.fPos(fwCut==2|fwCut==3)));
+  cutAtEnd = fwCut==1|fwCut==3;
+  cutAtStr = fwCut==2|fwCut==3;
+    
+  endCirc = F.f.c(F.f.cPos(F.l.fPos([false;cutAtEnd]))-1); %F.l.f is has not changed
+  strCirc = F.f.c(F.f.cPos(F.l.fPos(cutAtStr)));
+
   p       = circCircInt(F.c.CC(strCirc,:), F.c.R(strCirc),...
                         F.c.CC(endCirc,:), F.c.R(endCirc));
+  l2fId1  = repmat(F.l.fPos(cutAtStr),1,2);
+  l2fId2  = repmat(F.l.fPos([false;cutAtEnd]),1,2); %Not -1 because of how insertVec works
+  l2fId   = reshape([l2fId1,l2fId2]',[],1);
   fId     = (size(F.f.pts,1)+1:size(F.f.pts,1) + size(p,1))';
   fId     = reshape(fId,2,[]);
   fId     = repmat(fId,2,1);
   cId     = reshape([strCirc,endCirc]',[],1);
   c2fId   = repmat(F.c.fPos(cId)',2,1);
   c2fId   = c2fId(:);
-
+  
+  
+  F.l.f   = insertVec(F.l.f, fId(:), l2fId);
   F.f.pts = [F.f.pts;p];
   nGs     = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
   F.f.Gs  = [F.f.Gs;reshape(nGs(:,1:2:end),[],1)];
@@ -164,6 +175,8 @@ if ~isempty(F.c.CC)
   cId     = repmat(reshape(cId,2,[]),2,1);
   F.f.cPos= [F.f.cPos;F.f.cPos(end)+2*cumsum(ones(size(p,1),1))];
   F.f.c   = [F.f.c;cId(:)];
+  
+  F.l.fPos(2:end) = F.l.fPos(2:end)+ 2*cumsum(cutAtEnd+cutAtStr);
 end
 
 
@@ -444,20 +457,26 @@ function [F] = fixIntersections(F)
   F.f.pts(fId,:) = p;
   nGs            = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
   F.f.Gs(fId)    = reshape(nGs(:,1:2:end),[],1);
-  map = [F.f.cPos(fId),F.f.cPos(fId)+1]';
+  map            = [F.f.cPos(fId),F.f.cPos(fId)+1]';
   F.f.c(map(:))  = [c';neigh(:,1)';c';neigh(:,1)';c';neigh(:,2)';c';neigh(:,2)'];%reshape(repmat([c',c';neigh(:,1)',neigh(:,2)'],2,1),2,[]);
 
-  [F.f.pts, IA, IC] = uniquetol(F.f.pts,'byRows',true);
+  [~, IA, IC] = uniquetol(F.f.pts,'byRows',true);
+  %[IA, I] = sort(IA);
+  %IC = I(IC);
+  F.f.pts = F.f.pts(IA,:);
   F.f.Gs = F.f.Gs(IA);
   [~,I] = sort(IC);
-  map = [F.f.cPos(1:end-1), F.f.cPos(2:end)-1];
-  map = map(I,:);
-  map = arrayfun(@colon, map(:,1),map(:,2),'uniformOutput',false);
-  F.f.c = F.f.c(cell2mat(map'));
+  
+  mapc = [F.f.cPos(1:end-1), F.f.cPos(2:end)-1];
+  mapc = mapc(I,:);
+  mapc = arrayfun(@colon, mapc(:,1),mapc(:,2),'uniformOutput',false);
+  F.f.c = F.f.c(cell2mat(mapc'));
   cNum = diff(F.f.cPos);
   F.f.cPos = cumsum([1;accumarray(IC,cNum)]);
   F.c.f = IC(F.c.f);
-
+  
+ 
+  F.l.f = IC(F.l.f);
 end
 
 

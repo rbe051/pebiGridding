@@ -4,7 +4,7 @@ function d = pdist(x)
   %    x         A set of points [x,y]
   % Returns:
   %    d         Distance, all to all
-
+  % Halvor Møll Nielsen
     nc=size(x,1);
     d=zeros(1,nc*(nc-1)/2);
     nf=0;
