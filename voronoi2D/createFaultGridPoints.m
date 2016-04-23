@@ -461,8 +461,6 @@ function [F] = fixIntersections(F)
   F.f.c(map(:))  = [c';neigh(:,1)';c';neigh(:,1)';c';neigh(:,2)';c';neigh(:,2)'];%reshape(repmat([c',c';neigh(:,1)',neigh(:,2)'],2,1),2,[]);
 
   [~, IA, IC] = uniquetol(F.f.pts,'byRows',true);
-  %[IA, I] = sort(IA);
-  %IC = I(IC);
   F.f.pts = F.f.pts(IA,:);
   F.f.Gs = F.f.Gs(IA);
   [~,I] = sort(IC);
