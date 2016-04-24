@@ -2,15 +2,15 @@
 % This script contains an example of a single well intersected by several
 % faults. It uses the two wrapper-functions compositePebiGrid(..) and 
 % pebiGrid(..) to create a PEBI-grid conforming to the faults and wells.
-
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 
 
-%close all; clear
+
 
 
 %% Set path to voronoi2D
 %addpath ../
+%close all; clear
 
 %% Set well and fault paths
 % voronoi2D store well and fault paths as arrays in cells. Each row in 
@@ -30,7 +30,6 @@ fault   = {[0.3,0.1;0.1,0.3],...
 
 % We now plot the well and fault to see how it looks like
 figure(); hold on
-subplot(1,3,1)
 plotLinePath(well,'color','blue');
 plotLinePath(fault,'color','red');
 axis equal tight
@@ -56,7 +55,7 @@ Gc = compositePebiGrid(gS, [1, 1], ...
 
 %% Plot composite grid
 %And plot it
-subplot(1,3,2)
+figure()
 plotGrid(Gc, 'facecolor','none')
 axis equal tight
 title('compositePebiGrid(...)')
@@ -77,7 +76,7 @@ Gdist = pebiGrid(gS, [1, 1], 'wellLines', well, ...
                 'wellGridFactor',wGf/2, 'wellRefinement', true, ...
                 'epsilon',eps, 'faultlines', fault);
 %% Plot pebiGrid
-subplot(1,3,3)
+figure();
 plotGrid(Gdist,'facecolor','none')
 axis equal tight
 title('pebiGrid(...)')

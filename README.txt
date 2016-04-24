@@ -53,3 +53,29 @@ It can be used to split all faults and wells at their intersections.
 
 EXAMPLES: 
 For examples see the subfolder voronoi2d/examples
+
+
+Changes in distMesh:
+distmesh2d.m:
+  Removed plotting, added maximum number of iterations and fixed initial grid
+  size from relative to absolute. 
+
+  Line 1:  function [p,t]= ... -> function [p,t, IC]= ...
+  Line 60: densityctrlfreq=30; -> densityctrlfreq=30; maxIt = 1000;
+  Line 70: p=p(rand(size(p,1),1)<r0./max(r0),:); -> p=p(rand(size(p,1),1)<r0,:);
+  Line 78: removed
+  Line 79: while 1 -> while count<maxIt
+  Line 91-92: removed
+  Line 124: added; if count == maxIt
+                       warning('DistMesh did not converge in maximum number of iterations.')
+                   end
+ Line 126: [p,t]=fixmesh(p,t); -> [p,t, ~, sorting]=fixmesh(p,t);
+ Line 127: removed
+
+fixmesh:
+  Added a vector which keeps track of the how fixmesh changes the ordering
+  of p. 
+  line  1: function [p,t,pix]= ... -> function [p,t,pix,sorting]= ...
+  line  9: added; sorting = (1:size(p,1))';
+  line 13: added; sorting = sorting(ix,:);
+  line 19.5: added sorting = sorting(pix);

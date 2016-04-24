@@ -1,4 +1,4 @@
-function [p,t, sorting]=distmesh2d(fd,fh,h0,bbox,pfix,varargin)
+function [p,t, IC]=distmesh2d(fd,fh,h0,bbox,pfix,varargin)
 %DISTMESH2D 2-D Mesh Generator using Distance Functions.
 %   [P,T]=DISTMESH2D(FD,FH,H0,BBOX,PFIX,FPARAMS)
 %
@@ -123,5 +123,5 @@ if count == maxIt
 end
 
 % Clean up final mesh
-[p,t, ~, sorting]=fixmesh(p,t);
+[p,t, ~, IC]=fixmesh(p,t);
 

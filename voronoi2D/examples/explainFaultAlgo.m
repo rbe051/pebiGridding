@@ -1,8 +1,9 @@
-% This script goes trough the most important details about how to algorithm
-% creates a grid conforming to faults.
+% This script goes trough the most important details about how 
+% createFaultPoints create the fault points.
 % It does not cover the details, nor does it cover intersecting faults, but
 % it will hopefully enlighten persons that whish to implement their own
-% algorithms conforming to faults. 
+% algorithms conforming to faults. See explainWellAlgo for creating well
+% points.
 
 
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.

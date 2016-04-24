@@ -1,14 +1,11 @@
 %% Example
 % This script contains an example of how one can create a 2.5D grid.
-
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
-
-
-%close all; clear
 
 
 %% Set path to voronoi2D
 %addpath ../
+%close all; clear
 
 %% Set well and fault paths
 % We start by creating wells and faults. We create three vertical wells and
@@ -25,7 +22,6 @@ well  = {[40,100], [350, 150], [160,140]};
 %% Plot faults and well paths
 % and plot them
 figure(); hold on
-subplot(2,3,1)
 plotLinePath(well,'.','color','blue','markersize',15);
 plotLinePath(fault,'color','red');
 axis equal tight
@@ -48,7 +44,7 @@ Gc = compositePebiGrid(gS, [Lx, Ly], 'wellLines', well, ...
                                'mlqtMaxLevel', nRs, 'faultLines', fault);
 %% Plot composite grid
 %And plot it
-subplot(2,3,2)
+figure(); hold on
 plotGrid(Gc, 'facecolor','none')
 axis equal tight
 title('compositePebiGrid(...)')
@@ -62,7 +58,7 @@ eps = sqrt(gS)*8; % This parameter defines the refinement around
                   %  gS - exp(-(distance from well)/eps);
 
 %% Generate grid
-% distmesh will most likely converge in the maximum number of iterations.
+% distmesh will most likely not converge in the maximum number of iterations.
 % This is usually not a problem, since the grid most likely is good before
 % the convergence requirement is met. 
 
@@ -70,7 +66,7 @@ Gdist = pebiGrid(gS, [Lx, Ly], 'wellLines', well, ...
                 'wellGridFactor',wGf/2, 'wellRefinement', true, ...
                 'epsilon',eps, 'faultlines', fault);
 %% Plot pebiGrid
-subplot(2,3,3)
+figure(); hold on
 plotGrid(Gdist,'facecolor','none')
 axis equal tight
 title('pebiGrid(...)')
@@ -86,13 +82,13 @@ Gdist3D.nodes.coords(:,3) = Gdist3D.nodes.coords(:,3)*Lz/nz;
 Gdist3D = computeGeometry(Gdist3D);
 
 %% plot 3D grids
-subplot(2,3,5);
+figure(); hold on
 plotGrid(Gc3D);
 axis equal tight
 title('2.5D grid')
 view(30,60)
         
-subplot(2,3,6);
+figure(); hold on
 plotGrid(Gdist3D);
 axis equal tight
 title('2.5D grid')

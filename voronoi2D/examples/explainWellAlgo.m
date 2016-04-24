@@ -1,14 +1,17 @@
-% This script goes trough the most important details about how to algorithm
-% creates a grid conforming to wells.
+% This script goes trough the most important details about how 
+% createWellPoints works.
 % It does not cover the details, nor does it cover intersecting wells, but
 % it will hopefully enlighten persons that whish to implement their own
 % algorithms conforming to wells. 
-
 % Copyright (C) 2016 Runar Lie Berge. See COPYRIGHT.TXT for details.
 
 
+%% Set path to voronoi2d
+%add path ../
+%clear; close all
+
 %% Create a Well
-% We create a circular well. This is mostly to demonstrate the flexibillity
+% We create a circular well to demonstrate the flexibillity
 % of the gridding method. 
 dWell = 0.1;                         % Grid cell size
 n     = 20;                          % Number of line-segments that approximate the well
@@ -23,7 +26,7 @@ hold on
 plot([well(:,1);well(1,1)], [well(:,2);well(1,2)]);
 axis equal tight
 axis([0.1,0.9,0.1,0.9])
-%% Interpolate fault
+%% Interpolate well
 % We interpolate the well with a set of equidistant points
 linesDist = sqrt(sum(diff(well,[],1).^2,2)); % Total length of each line segment
 linesDist = [0; linesDist];                  % Add starting points
