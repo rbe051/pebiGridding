@@ -56,10 +56,11 @@ drawnow
 % We now use the other wrapper function to create a PEBI-grid using
 % distmesh:
 eps = 1/12; % This parameter defines the refinement around the wells. The
-            % cell size are ~gS - exp(-(distance from well)/eps);
+            % cell size increase exponentially from the wells with 
+            % exp(-(distance from well)/eps);
 
 %% Generate grid
-% distmesh will most likely converge in the maximum number of iterations.
+% distmesh will most likely not converge in the maximum number of iterations.
 % This is usually not a problem, since the grid most likely is good before
 % the convergence requirement is met. 
 
