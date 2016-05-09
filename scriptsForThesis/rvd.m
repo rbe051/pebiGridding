@@ -1,6 +1,6 @@
 clc;clear;close all
 
-addpath ../voronoi3D/
+%addpath ../../voronoi3D/
 
 nt = 4;
 nv = 4;
@@ -56,9 +56,15 @@ v = v/nv + 0.1*rand(size(v));
 Gt = triangleGrid(t);
 Gv = triangleGrid(v);
 Gp = pebi(Gv);
+Gp = computeGeometry(Gp);
+[~,c]  = min(sum(bsxfun(@minus, Gp.cells.centroids, [0.5,0.5]).^2,2));
+cId = false(Gp.cells.num,1);
+cId(c) = true;
 %plotGrid(Gt,9,'faceColor','none','edgecolor','r')
 hold on
-plotGrid(Gp, 'faceColor','k','facealpha',0.1)
-plotGrid(Gv,'faceColor','none','linestyle',':')
+plotGrid(Gp,~cId, 'faceColor','k','facealpha',0.1)
+plotGrid(Gp, cId, 'faceColor','y','facealpha',0.1)
+plot(v(:,1), v(:,2),'k.','markersize',6)
+%plotGrid(Gv,'faceColor','none','linestyle',':')
 
 axis equal off

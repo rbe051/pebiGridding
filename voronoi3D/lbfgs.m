@@ -33,12 +33,10 @@ function [x,f,gNorm] = lbfgs(x0, F, dt, varargin)
     
     x      = x0;
     [f,g]  = F(x0);
-    g0     = g;
     gNorm  = norm(g,2);
     H      = eye(size(x,1));
     s      = zeros(size(x,1),m);
     y      = zeros(size(x,1),m);
-    
 
     for k = 1:maxIt
         if gNorm(k)<=tol*gNorm(1)
@@ -76,9 +74,6 @@ function [x,f,gNorm] = lbfgs(x0, F, dt, varargin)
 end
 
 
-
-
-
 function [r] = twoLoopRec(g, H, s, y, m)
     alpha = zeros(1,m);
     for i = m:-1:1
@@ -102,9 +97,9 @@ end
 function [alpha] = backTracking(F, x, p, dt)
     alpha = 1; rho = 0.5; c = 1e-3;
     [f0, g0] = F(x);
-    while any(isnan(pointLocation(dt, reshape(x+alpha*p,3,[])')))&& alpha>1e-16
-        alpha = rho*alpha;
-    end
+     while any(isnan(pointLocation(dt, reshape(x+alpha*p,size(dt.Points,2),[])')))&& alpha>1e-16
+         alpha = rho*alpha;
+     end
     beta = f0 + c*alpha*g0'*p;
     [f1,~] = F(x+alpha*p);
     while f1 > beta && alpha>1e-16

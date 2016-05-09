@@ -160,7 +160,7 @@ function [merged] = mergeFaces(V, H, F, n)
     % shift coordinate system
     id         = find(F);
     x0         = mean(V(H(id(1),:),:));
-    VC          = bsxfun(@minus, V, x0);
+    VC         = bsxfun(@minus, V, x0);
     % Create new basis
     basis      = VC(H(id(1),1:2),:)';
     basis(:,1) = basis(:,1)/norm(basis(:,1),2);

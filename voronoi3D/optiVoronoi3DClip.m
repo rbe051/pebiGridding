@@ -31,17 +31,19 @@ function [G,optPts,f,g] = optiVoronoi3DClip(pts, dt, varargin)
                  'fault',     struct,                ...
                  'storedVec', 5,                     ...
                  'tol',       1e-10,                 ...         
-                 'maxIt',     1000,                  ...
+                 'maxIt',     150,                  ...
                  'minStep',   10*eps);
     opt = merge_options(opt, varargin{:});
     
     F = @(pts) objectiveFunc(pts, dt, opt.fault, opt.density);
 
     pts = reshape(pts',[],1);
-
-    [optPts, f, g] = lbfgs(pts, F, dt, 'storedVec',opt.storedVec, ...
-                                       'maxIt',    opt.maxIt,...
-                                       'tol',      opt.tol);
+% 
+%     [optPts, f, g] = lbfgs(pts, F, dt, 'storedVec',opt.storedVec, ...
+%                                        'maxIt',    opt.maxIt,...
+%                                        'tol',      opt.tol);
+    [optPts, f, g] = steepestDesent(pts, F, dt, 'maxIt',    opt.maxIt,...
+                                                'tol',      opt.tol);
 
     optPts = reshape(optPts,3,[])';
     G = restrictedVoronoiDiagram(optPts, dt);
@@ -61,11 +63,11 @@ function [f, g] = objectiveFunc(pts, bndr, fault, rho)
     
     [Vf,Cf,symF] = clipGrid(dt,fault,'bisectN',nBdr,'bisectX0',x0bdr);
 
-    %[n,x0] = normalPlanes(Vf,Cf); %OBS! This is simplified and subject to change.
-    n = [nF;nBdr]; x0 = [x0F;x0bdr];
-    
-    cells = find(~cellfun(@isempty,Cf));
-    [Vb,Cb, symB] = VOuter(cells,symG,pts,Gt,G,dt,n(1,:),x0(1,:));
+     %[n,x0] = normalPlanes(Vf,Cf); %OBS! This is simplified and subject to change.
+     n = [nF;nBdr]; x0 = [x0F;x0bdr];
+     
+     cells = find(~cellfun(@isempty,Cf));
+     [Vb,Cb, symB] = VOuter(cells,symG,pts,Gt,G,dt,n(1,:),x0(1,:));
 
     
     [V,C,symV,cutT] = mergeNodes(Vf,Cf,symF,fault,Vb,Cb,symB,bndr2D);
@@ -78,12 +80,19 @@ function [f, g] = objectiveFunc(pts, bndr, fault, rho)
     
     
     f = sum(polyhedronInt(G,1:G.cells.num, intFun));
-    f = 0*f + vol;
-
+    beta = f/vol;
+    f = f + beta*vol;
+    f = vol;
     massFun = @(x,i) rho(x);
     masses = polyhedronInt(G,1:G.cells.num,massFun);
     g = reshape((2*repmat(masses,1,3).*(pts - G.cells.centroids))',[],1);
-    g = 0*g + 1*gv;
+    %g = g + 2*beta*gv;
+   % g = gv;
+    alpha = pts(cells,:)*[0;0;1];
+    %f = sum(alpha);
+    
+    g(3*cells) = g(3*cells) -  1.4*max(abs(g(3*cells)))./(1 + abs(alpha)).*sign(alpha);
+      
 end
 
 

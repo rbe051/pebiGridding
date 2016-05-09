@@ -39,6 +39,9 @@ C = cellfun(@(cint,cext) [cint,cext+ni], CInt, C,'uniformOutput',false) ;
 %         patch('Vertices', V(C{i},:), 'faces', hull,'facecolor','y')
 %     end
 % end
+[V,IA,IC] = uniquetol(V,50*eps,'byRows',true);
+symV = symV(IA);
+C = cellfun(@(c) unique(IC(c))', C,'UniformOutput',false);
 
 G = voronoi2mrst(V,C, false(numel(C),1),'pebi');
 

@@ -9,8 +9,9 @@ bisectN = opt.bisectN;
 bisectX0 = opt.bisectX0;
 assert(size(bisectN,1)==size(bisectX0,1),'# of normals must equal # of x0')
 
+boundDim = size(bound.ConnectivityList,2);
 
-s = dsearchn(dt.Points,sum(bound.Points(bound.ConnectivityList(1,:),:)/3,1));
+s = dsearchn(dt.Points,sum(bound.Points(bound.ConnectivityList(1,:),:)/boundDim,1));
 
 Q = [1, s];
 V = [];
@@ -43,10 +44,14 @@ while ~isempty(Q)
     
     [newVertex, symT] = clipPolygon(bound.Points(bound.ConnectivityList(t,:),:),...
                                     n,x0,symT,symV,bisect);
+    if isempty(newVertex)
+      continue
+    end
     symV = [symV; symT];
     C{s} = [C{s}, size(V,1)+1:size(V,1)+size(newVertex,1)];
     V = [V;newVertex];
     [Q,CT] = updateQue(Q, symT, CT, E, NC, s, t,-nFac);    
+    
 
 end
 
