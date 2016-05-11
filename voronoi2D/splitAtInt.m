@@ -104,6 +104,6 @@ for i = 1:size(tmpCut,1)
   end
   numEl = toNum;
 end
-L1Cut = L1Cut(1:numEl); % Remove none assigned values.
+L1Cut = L1Cut(1:numEl); % Remove values not assigned.
 
 end
