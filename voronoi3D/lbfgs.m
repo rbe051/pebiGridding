@@ -95,11 +95,11 @@ end
 
 
 function [alpha] = backTracking(F, x, p, dt)
-    alpha = 1; rho = 0.5; c = 1e-3;
+    alpha = 0.1; rho = 0.5; c = 1e-3;
     [f0, g0] = F(x);
-     while any(isnan(pointLocation(dt, reshape(x+alpha*p,size(dt.Points,2),[])')))&& alpha>1e-16
-         alpha = rho*alpha;
-     end
+%      while any(isnan(pointLocation(dt, reshape(x+alpha*p,size(dt.Points,2),[])')))&& alpha>1e-16
+%          alpha = rho*alpha;
+%      end
     beta = f0 + c*alpha*g0'*p;
     [f1,~] = F(x+alpha*p);
     while f1 > beta && alpha>1e-16
