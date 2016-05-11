@@ -25,10 +25,11 @@ for s = 1:size(p,1)
     end
     
     [newVertex, ~] = clipPolygon(bnd, n, x0, symT,[], bisect);
-    
-    if isempty(newVertex)
-      rem(any(NC,2)) = false;
-      continue
+    keep = inpolygon(newVertex(:,1), newVertex(:,2), bnd(:,1), bnd(:,2));
+    newVertex = newVertex(keep,:); % The clipPolygon routine might return
+    if isempty(newVertex)          % vertexes outside the domain. The part
+      rem(any(NC,2)) = false;      % of the cell outside the domain will have
+      continue                     % zero volume. 
     end
     C{s} = [C{s}, size(V,1)+1:size(V,1)+size(newVertex,1)];
     V = [V;newVertex];
