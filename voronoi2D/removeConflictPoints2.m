@@ -2,7 +2,7 @@ function [P1, removed] = removeConflictPoints2(P1,P2,dist)
 % Remove any points from a set that is to close to an other set.
 %
 % SYNOPSIS:
-%   [Pts, removed] = removeConflicPoints2(P1,P2,TOL)
+%   [Pts, removed] = removeConflicPoints2(P1,P2,dist)
 %
 % PARAMETERS;
 %   P1              A nx2 array of possible conflict points. If a point is

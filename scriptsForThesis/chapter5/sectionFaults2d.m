@@ -1,6 +1,5 @@
 clc; clear all; close all
 
-
 %% Create a fault
 fault    = [0.2,0.8; 0.5,0.5; 0.8,0.5];
 dFault   = 0.1;
@@ -9,10 +8,11 @@ circFact = 0.6;
 %% Plot Fault
 figure()
 hold on
-plot(fault(:,1), fault(:,2));
+col = get(gca, 'ColorOrder');
+plot(fault(:,1), fault(:,2), 'color',col(2,:));
 axis equal tight
 axis([0.1,0.9,0.4,0.9])
-%print('../../../../master/thesis/fig/ch04/fault2DexampleImpJustFault','-depsc')
+print('../../../../master/thesis/fig/ch05/fault2DexampleImpJustFault','-depsc')
 %% Interpolate fault
 linesDist = sqrt(sum(diff(fault,[],1).^2,2));
 linesDist = [0; linesDist]; % add the starting point
@@ -24,12 +24,12 @@ CC        = interp1(cumDist, fault, newPtsT);
 %% Plot interpolation:
 figure()
 hold on
-yellow =  [0.9290    0.6940    0.1250];
-plot(fault(:,1), fault(:,2));
-plot(CC(:,1),CC(:,2),'.','color',yellow,'markersize',15);
+col = get(gca, 'ColorOrder');
+plot(fault(:,1), fault(:,2), 'color',col(2,:));
+plot(CC(:,1),CC(:,2),'.','color',col(3,:),'markersize',15);
 axis equal tight
 axis([0.1,0.9,0.4,0.9])
-%print('../../../../master/thesis/fig/ch04/fault2DexampleImpInter','-depsc')
+print('../../../../master/thesis/fig/ch05/fault2DexampleImpInter','-depsc')
 
 %% Calculate circle radiuses
 
@@ -56,19 +56,19 @@ pts = [lPts; rPts];
 
 %% Plotting
 figure(); hold on
-yellow =  [0.9290    0.6940    0.1250];
+col = get(gca, 'ColorOrder');
 
 theta= linspace(0,2*pi)';
 for i = 1:size(CC,1)
   X = repmat(CC(i,:),100,1) + repmat(CR(i),100,2).*[cos(theta), sin(theta)];
   plot(X(:,1),X(:,2),'k')
 end
-plot(fault(:,1), fault(:,2));
+plot(fault(:,1), fault(:,2), 'color',col(2,:));
 plot(pts(:,1),pts(:,2),'.','markersize',15);
-plot(CC(:,1),CC(:,2),'.','color',yellow,'markersize',15);
+plot(CC(:,1),CC(:,2),'.','color',col(3,:),'markersize',15);
 axis equal tight
 axis([0.1,0.9,0.4,0.9])
-%print('../../../../master/thesis/fig/ch04/fault2DexampleImp','-depsc')
+print('../../../../master/thesis/fig/ch05/fault2DexampleImp','-depsc')
 
 %% Cartesian background-grid
 [X,Y]   = meshgrid(0:dFault:1);
@@ -78,19 +78,19 @@ removed = any(pdist2(backPts,CC)<CRrep,2);
 backPts = backPts(~removed,:);
 
 %% Plot all seeds
-theta= linspace(0,2*pi)';
 figure(); hold on
+col = get(gca, 'ColorOrder');
+theta= linspace(0,2*pi)';
 for i = 1:size(CC,1)
   X = repmat(CC(i,:),100,1) + repmat(CR(i),100,2).*[cos(theta), sin(theta)];
   plot(X(:,1),X(:,2),'k')
 end
-plot(fault(:,1), fault(:,2));
-plot(pts(:,1),pts(:,2),'.','markersize',15);
-plot(CC(:,1),CC(:,2),'.','color',yellow,'markersize',15);
+plot(fault(:,1), fault(:,2), 'color',col(2,:));plot(pts(:,1),pts(:,2),'.','markersize',15);
+plot(CC(:,1),CC(:,2),'.','color',col(3,:),'markersize',15);
 plot(backPts(:,1), backPts(:,2),'.k','markersize',15);
 axis equal tight
 axis([0.1,0.9,0.4,0.9])
-%print('../../../../master/thesis/fig/ch04/fault2DexampleImpAllSeeds','-depsc')
+print('../../../../master/thesis/fig/ch05/fault2DexampleImpAllSeeds','-depsc')
 
 %% Create full grid
 Gt = triangleGrid([pts;backPts]);
@@ -99,7 +99,7 @@ figure()
 plotGrid(G,'facecolor','none')
 axis equal tight
 axis([0.1,0.9,0.4,0.9])
-%print('../../../../master/thesis/fig/ch04/fault2DexampleImpGrid','-depsc')
+print('../../../../master/thesis/fig/ch05/fault2DexampleImpGrid','-depsc')
 
 
 
