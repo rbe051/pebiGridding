@@ -106,12 +106,15 @@ fwCut        = opt.fwCut;
 F.f.Gs    = [];                % Fault point grid size
 F.f.pts   = [];                % Fault points
 F.f.c     = [];                % Map from a fault to the circle center
-F.f.cPos  = 1;                 
+F.f.cPos  = 1;
 
 F.c.CC    = [];                % Center of circle used to create fault pts
 F.c.R     = [];                % Radius of the circle
 F.c.f     = [];                % Map from the circle center to a fault  
 F.c.fPos  = 1;
+F.c.l     = [];
+F.c.lPos  = 1;
+
 F.l.f     = [];
 F.l.fPos  = 1;                  % Map frm fault lines to fault points
 F.l.l     = faultLines;
@@ -141,8 +144,10 @@ for i = 1:F.l.nFault
   F.f.cPos = [F.f.cPos; cPos(2:end) + F.f.cPos(end)-1];
   F.c.f    = [F.c.f; c2fi + size(F.f.pts,1)-nl*2];
   F.c.fPos = [F.c.fPos; fPos(2:end) + F.c.fPos(end)-1];
+  F.c.l    = [F.c.l;repmat(i,size(fCi,1),1)];
 end
 F.l.f = (1:F.l.fPos(end)-1)';
+F.c.lPos = (1:size(F.c.CC,1)+1)';
 
 % Add well-fault intersections
 if ~isempty(F.c.CC)
@@ -187,15 +192,20 @@ if ~isempty(F.f.pts)
   F.c.CC      = F.c.CC(IA,:);
   F.c.R       = F.c.R(IA);
   [~,I]       = sort(IC);
-  map         = [F.c.fPos(1:end-1), F.c.fPos(2:end)-1];
-  map         = map(I,:);
-  map         = arrayfun(@colon, map(:,1),map(:,2),'uniformOutput',false);
-  F.c.f       = F.c.f(cell2mat(map'));
+  from2f      = [F.c.fPos(1:end-1), F.c.fPos(2:end)-1];
+  from2f      = from2f(I,:);
+  F.c.f       = F.c.f(mcolon(from2f(:,1),from2f(:,2)));
+  from2l      = [F.c.lPos(1:end-1), F.c.lPos(2:end)-1];
+  from2l      = from2l(I,:);
+  F.c.l       = F.c.l(mcolon(from2l(:,1),from2l(:,2)));
   fNum        = diff(F.c.fPos);
+  lNum        = diff(F.c.lPos);
   F.c.fPos    = cumsum([1; accumarray(IC,fNum)]);
+  F.c.lPos    = cumsum([1; accumarray(IC,lNum)]);
   F.f.c       = IC(F.f.c);
+  
   % Merge intersections
-  [F]         = fixIntersections(F);
+  [F]         = fixIntersections(F, fh, circleFactor);
 end
 end
 
@@ -386,7 +396,7 @@ function [newPoints] = interpLine(path, dt)
 end
 
 
-function [F] = fixIntersections(F)
+function [F] = fixIntersections(F,fh, circFac)
   assert(all(diff(F.f.cPos)==2),'all points must be created from exactly 2 circles');
   
   % Find conflict circles
@@ -427,14 +437,9 @@ function [F] = fixIntersections(F)
 
   % set radius to smallest
   R = sqrt(sum((F.c.CC(circ(:,1:2),:)-[int;int]).^2,2));
-  I = false(size(circ(:,1:2)));
   for i = 1:numel(R)
     if R(i)<F.c.R(circ(i))
       F.c.R(circ(i)) = R(i);
-      I(circ(:,1:2)==circ(i)) = false;
-      I(i) = true;
-    elseif R(i)==F.c.R(circ(i))
-      I(i) = true;
     end
   end
   c = unique(circ(:,1:2));
@@ -443,7 +448,8 @@ function [F] = fixIntersections(F)
   end
   % Calculate new Pts
   map = arrayfun(@colon,F.c.fPos(c),F.c.fPos(c+1)-1,'uniformOutput',false)';
-  fId = F.c.f(horzcat(map{:})');
+  map = horzcat(map{:})';
+  fId = F.c.f(map);
 %   fId = unique(fId(:));
 %   fId = fId(~isnan(fId));
 
@@ -453,8 +459,25 @@ function [F] = fixIntersections(F)
   
   p = circCircInt(F.c.CC(c,:), F.c.R(c),...
                  reshape(F.c.CC(neigh',:)',4,[])',reshape(F.c.R(neigh),[],2));
-  assert(isreal(p),'Failed to merge fault crossings. Possible too sharp intersections');
-  F.f.pts(fId,:) = p;
+  reN = any(p - conj(p)==0,2);
+  p = p(reN,:);
+  fId = fId(reN);
+  
+  if any(~reN)
+    circNum = rldecode(1:size(F.c.CC,1), diff(F.c.fPos),2);
+    mC = circNum(map(reN));
+    mC = unique(mC, 'stable');
+    mc = reshape(mC,2,[])';
+    N1 = neigh(1:2:end,:);
+    N2 = neigh(2:2:end,:);
+    n  = bsxfun(@eq, N1(:,1), N2) | bsxfun(@eq, N1(:,2), N2);
+    N  = [N1, N2(~n)];
+    F = mergeCirc(F,mc,N,fh,circFac);
+
+    F = fixIntersections(F,fh, circFac);
+    return
+  end
+  F.f.pts(fId,:) = p;  
   nGs            = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
   F.f.Gs(fId)    = reshape(nGs(:,1:2:end),[],1);
   map            = [F.f.cPos(fId),F.f.cPos(fId)+1]';
@@ -473,8 +496,114 @@ function [F] = fixIntersections(F)
   F.f.cPos = cumsum([1;accumarray(IC,cNum)]);
   F.c.f = IC(F.c.f);
   
- 
   F.l.f = IC(F.l.f);
+  
+
+  
+  end
+
+
+function [F] = mergeCirc(F,c,N,fh,circFac)
+
+  rc = c(:);
+  C1 = c(:,1);
+  C2 = c(:,2);
+  newCC = (F.c.CC(C1,:) + F.c.CC(C2,:))/2;
+  newR = circFac*fh(F.c.CC(C1,:));
+  newPts = circCircInt(newCC, newR, reshape(F.c.CC(N',:)',6,[])',reshape(F.c.R(N),[],3));
+  
+  c1Pos = [F.c.lPos(C1),F.c.lPos(C1+1)-1];
+  c2Pos = [F.c.lPos(C2),F.c.lPos(C2+1)-1];
+  c1l   = F.c.l(mcolon(c1Pos(:,1), c1Pos(:,2)));
+  c2l   = F.c.l(mcolon(c2Pos(:,1), c2Pos(:,2)));
+  c2S   = diff(c2Pos,1,2)+1;
+  c1S   = diff(c2Pos,1,2)+1;
+  clNew = insertVec(c1l, c2l,repelem((1:size(c2Pos,1))',c2S));
+  lPosN = cumsum([1;c2S+c1S]);
+  % Remove circles
+  F.c.CC(rc,:) = [];
+  F.c.R(rc) = [];
+
+  mapf = mcolon(F.c.fPos(rc),F.c.fPos(rc+1)-1);
+  mapl = mcolon(F.c.lPos(rc),F.c.lPos(rc+1)-1);
+  rf = F.c.f(mapf);
+  LIA = ismember(F.c.f,rf);
+  F.c.f(LIA) = [];
+  F.c.l(mapl) = [];
+  
+  lSize = diff([F.c.lPos(rc), F.c.lPos(rc+1)],1,2);  
+  I1 = zeros(size(F.c.lPos,1)-1,1);
+  I1(rc) = -lSize;
+  I1 = [0;cumsum(I1)];
+
+  I2 = zeros(size(F.c.fPos,1)-1,1);
+  I2(rc) = -1;
+  I2     = [0; cumsum(I2)];
+ 
+
+  N = N + I2(N);
+  F.f.c = F.f.c + I2(F.f.c);
+  % Remove sites
+  F.f.pts(rf,:) = [];
+  F.f.Gs(rf,:) = [];
+  mapc = mcolon(F.f.cPos(rf),F.f.cPos(rf+1)-1);
+  F.f.c(mapc) = [];
+
+ % cNum = diff([F.f.cPos(rf), F.f.cPos(rf+1)],1,2);
+%   I3 = zeros(size(F.f.cPos,1)-1,1);
+%   I3(rf) = -cNum;
+%   I3 = [0; cumsum(I3)];
+  
+  I4 = zeros(size(F.f.cPos,1)-1,1);
+  I4(rf) = -1;
+  I4 = [0;cumsum(I4)];
+  
+  F.c.f = F.c.f + I4(F.c.f);
+  
+  
+  LIA = ismember(F.l.f,rf);
+  sub = cumsum(LIA);
+  F.l.f = F.l.f - sub;
+  F.l.f(LIA) = [];
+  F.l.fPos(2:end) = F.l.fPos(2:end) - sub(F.l.fPos(2:end)-1);
+  
+  F.c.lPos = F.c.lPos + I1;
+  F.c.lPos(rc+1) = [];
+
+  F.f.cPos = cumsum([1;accumarray(F.c.f,1)]); %does this at the end
+  F.c.fPos = cumsum([1;accumarray(F.f.c,1)]);
+  
+  % Add circles
+  F.c.CC = [F.c.CC; newCC];
+  F.c.R  = [F.c.R; newR];
+  % Add sites
+  F.f.pts = [F.f.pts; newPts];
+  nGs     = repmat(sqrt(sum(diff(newPts).^2,2)),1,2)';
+  F.f.Gs  = [F.f.Gs;reshape(nGs(:,1:2:end),[],1)];
+  % Add mappings
+  F.f.cPos = [F.f.cPos; F.f.cPos(end) + (2:2:2*size(newPts,1))'];
+  c = (size(F.c.CC,1)-size(newCC,1)+1:size(F.c.CC,1))';
+  f2c = reshape([c';N(:,1)';c';N(:,1)'; ...
+                 c';N(:,2)';c';N(:,2)'; ...
+                 c';N(:,3)';c';N(:,3)'],2,[]);
+  F.f.c = [F.f.c; f2c(:)];
+  
+  F.c.fPos = [F.c.fPos; F.c.fPos(end) + (4:4:4*numel(c))'];
+  f = (size(F.f.pts,1)-size(newPts,1)+1: size(F.f.pts,1))';
+  F.c.f = [F.c.f; f];
+  
+
+  cf = reshape(N',[],1);
+  cf = repmat(cf,1,2);
+  cf = reshape(cf',[],1);
+  F.c.f = insertVec(F.c.f,f,F.c.fPos(cf));
+  
+  
+  F.f.cPos = cumsum([1;accumarray(F.c.f,1)]);
+  F.c.fPos = cumsum([1;accumarray(F.f.c,1)]);
+  
+  F.c.l = [F.c.l;clNew];
+  F.c.lPos = [F.c.lPos; F.c.lPos(end)+lPosN(2:end)-1]; 
 end
 
 
