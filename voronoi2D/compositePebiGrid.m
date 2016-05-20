@@ -1,4 +1,4 @@
-function G = compositePebiGrid(resGridSize, pdims, varargin)
+function [G,F] = compositePebiGrid(resGridSize, pdims, varargin)
 % Construct a 2D composite Pebi grid. A cartesian background grid that is 
 % refined around faults and wells.
 %
