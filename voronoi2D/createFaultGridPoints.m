@@ -465,8 +465,10 @@ function [F] = fixIntersections(F,fh, circFac)
   if any(~reN)
     circNum = rldecode(1:size(F.c.CC,1), diff(F.c.fPos),2);
     mC = circNum(map(~reN));
-    mC = unique(mC, 'stable');
-    mC = reshape(mC,2,[])';
+    %mC = unique(mC, 'stable');
+    [mC,~,IC] = intersect(mC, c);
+    mC = [mC, c(IC + (-1+2*bitget(IC,1)))];
+    mC = unique(sort(mC,2),'rows');
     F = mergeCirc(F,mC,fh,circFac);
 
     F = fixIntersections(F,fh, circFac);
@@ -501,7 +503,7 @@ function [F] = fixIntersections(F,fh, circFac)
 
 
 function [F] = mergeCirc(F,c,fh,circFac)
-  rc = c(:);
+  rc = reshape(c', [],1);
   C1 = c(:,1);
   C2 = c(:,2);
   newCC = (F.c.CC(C1,:) + F.c.CC(C2,:))/2;
@@ -509,11 +511,13 @@ function [F] = mergeCirc(F,c,fh,circFac)
   [neigh,neighPos] = findNeighbors(rc,F);
   assert(all(diff(neighPos)==2));
 
-  neigh  = reshape(neigh,2,[])';
-  N1 = neigh(1:2:end,:);
-  N2 = neigh(2:2:end,:);
-  n  = bsxfun(@eq, N1(:,1), N2) | bsxfun(@eq, N1(:,2), N2);
-  N  = [N1, N2(~n)];
+  neigh  = reshape(neigh,4,[])';
+  N1 = neigh(:,1:2);
+  N2 = neigh(:,3:4);
+  
+  n  = bsxfun(@ne, N1(:,1), N2) & bsxfun(@ne, N1(:,2), N2);
+  N2 = N2';  
+  N  = [N1(:,1:2), N2(n')];
 
   newPts = circCircInt(newCC, newR, reshape(F.c.CC(N',:)',6,[])',reshape(F.c.R(N),[],3));
   
