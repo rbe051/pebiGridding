@@ -416,7 +416,7 @@ function [F] = fixIntersections(F,fh, circFac)
              F.f.cPos(vertcat(I{circ}))+1])];
   
   % Find shared circle
-  [neigh,neighPos] = findNeighbors(circ(:,1),F.c.f,F.c.fPos, F.f.c,F.f.cPos);
+  [neigh,neighPos] = findNeighbors(circ(:,1),F);%F.c.f,F.c.fPos, F.f.c,F.f.cPos);
   assert(all(diff(neighPos)==2));
   
   neigh  = reshape(neigh,2,[])';
@@ -453,7 +453,7 @@ function [F] = fixIntersections(F,fh, circFac)
 %   fId = unique(fId(:));
 %   fId = fId(~isnan(fId));
 
-  [neigh,neighPos] = findNeighbors(c, F.c.f,F.c.fPos, F.f.c,F.f.cPos);
+  [neigh,neighPos] = findNeighbors(c, F);%F.c.f,F.c.fPos, F.f.c,F.f.cPos);
   assert(all(diff(neighPos)==2));
   neigh = reshape(neigh,2,[])';
   
@@ -462,25 +462,22 @@ function [F] = fixIntersections(F,fh, circFac)
   reN = any(p - conj(p)==0,2);
   p = p(reN,:);
   fId = fId(reN);
-  
   if any(~reN)
     circNum = rldecode(1:size(F.c.CC,1), diff(F.c.fPos),2);
-    mC = circNum(map(reN));
+    mC = circNum(map(~reN));
     mC = unique(mC, 'stable');
-    mc = reshape(mC,2,[])';
-    N1 = neigh(1:2:end,:);
-    N2 = neigh(2:2:end,:);
-    n  = bsxfun(@eq, N1(:,1), N2) | bsxfun(@eq, N1(:,2), N2);
-    N  = [N1, N2(~n)];
-    F = mergeCirc(F,mc,N,fh,circFac);
+    mC = reshape(mC,2,[])';
+    F = mergeCirc(F,mC,fh,circFac);
 
     F = fixIntersections(F,fh, circFac);
     return
   end
+  
   F.f.pts(fId,:) = p;  
   nGs            = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
   F.f.Gs(fId)    = reshape(nGs(:,1:2:end),[],1);
   map            = [F.f.cPos(fId),F.f.cPos(fId)+1]';
+  
   F.f.c(map(:))  = [c';neigh(:,1)';c';neigh(:,1)';c';neigh(:,2)';c';neigh(:,2)'];%reshape(repmat([c',c';neigh(:,1)',neigh(:,2)'],2,1),2,[]);
 
   [~, IA, IC] = uniquetol(F.f.pts,'byRows',true);
@@ -498,18 +495,26 @@ function [F] = fixIntersections(F,fh, circFac)
   
   F.l.f = IC(F.l.f);
   
-
+  
   
   end
 
 
-function [F] = mergeCirc(F,c,N,fh,circFac)
-
+function [F] = mergeCirc(F,c,fh,circFac)
   rc = c(:);
   C1 = c(:,1);
   C2 = c(:,2);
   newCC = (F.c.CC(C1,:) + F.c.CC(C2,:))/2;
   newR = circFac*fh(F.c.CC(C1,:));
+  [neigh,neighPos] = findNeighbors(rc,F);
+  assert(all(diff(neighPos)==2));
+
+  neigh  = reshape(neigh,2,[])';
+  N1 = neigh(1:2:end,:);
+  N2 = neigh(2:2:end,:);
+  n  = bsxfun(@eq, N1(:,1), N2) | bsxfun(@eq, N1(:,2), N2);
+  N  = [N1, N2(~n)];
+
   newPts = circCircInt(newCC, newR, reshape(F.c.CC(N',:)',6,[])',reshape(F.c.R(N),[],3));
   
   c1Pos = [F.c.lPos(C1),F.c.lPos(C1+1)-1];
@@ -540,8 +545,11 @@ function [F] = mergeCirc(F,c,N,fh,circFac)
   I2(rc) = -1;
   I2     = [0; cumsum(I2)];
  
-
-  N = N + I2(N);
+  if size(N,1)==1
+    N = N + I2(N)';
+  else
+    N = N + I2(N);
+  end
   F.f.c = F.f.c + I2(F.f.c);
   % Remove sites
   F.f.pts(rf,:) = [];
@@ -607,7 +615,11 @@ function [F] = mergeCirc(F,c,N,fh,circFac)
 end
 
 
-function [neigh,neighPos] = findNeighbors(c, c2f,c2fPos, f2c,f2cPos)
+function [neigh,neighPos] = findNeighbors(c, F)
+c2f = F.c.f;
+c2fPos = F.c.fPos;
+f2c = F.f.c;
+f2cPos = F.f.cPos;
 map   = arrayfun(@colon, c2fPos(c),c2fPos(c+1)-1,'uniformoutput',false);
 pId   = cellfun(@(c) c2f(c), map,'uniformOutput',false);
 neighMap = cellfun(@(c) cell2mat(arrayfun(@colon, f2cPos(c),f2cPos(c+1)-1,'uniformOutput',false)')...

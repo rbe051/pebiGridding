@@ -1,5 +1,5 @@
 function [p, symP] = clipPolygon(p, n, x0, symP, symV, bisector)
-TOL = 100*eps;
+TOL = 1e-10;%100*eps;
 
 assert(size(n,1)==size(x0,1),'unconsistent size of n and x0');
 assert(size(p,1)>2, 'A polygon needs more than 2 vertexes');

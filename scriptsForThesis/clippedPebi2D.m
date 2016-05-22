@@ -25,6 +25,10 @@ for s = 1:size(p,1)
     end
     
     [newVertex, ~] = clipPolygon(bnd, n, x0, symT,[], bisect);
+    [a,IA,IC] = uniquetol(newVertex,50*eps,'byRows',true);
+    if size(IA,1)~=size(IC,1)
+      disp('asdf')
+    end
     keep = inpolygon(newVertex(:,1), newVertex(:,2), bnd(:,1), bnd(:,2));
     newVertex = newVertex(keep,:); % The clipPolygon routine might return
     if isempty(newVertex)          % vertexes outside the domain. The part
@@ -67,7 +71,7 @@ for i = 1:G.faces.num
     if sum(neigh)==2
         G.faces.neighbors(i,[1,2]) = cellNo(neigh);
     else
-        G.faces.neighbors(i,:) = [cellNo(neigh),0];
+          G.faces.neighbors(i,:) = [cellNo(neigh),0];
     end
 end
 
