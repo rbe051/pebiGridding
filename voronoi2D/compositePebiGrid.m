@@ -112,7 +112,11 @@ wellLines                 = opt.wellLines;
 
 
 % Create well points
-sePtn         = 1.0*[wfCut==2|wfCut==3, wfCut==1|wfCut==3];
+bisectPnt = (faultGridSize.^2 - (circleFactor*faultGridSize).^2 ...
+            + (circleFactor*faultGridSize).^2) ./(2*faultGridSize);
+faultOffset = sqrt((circleFactor*faultGridSize).^2 - bisectPnt.^2);
+sePtn = [wfCut==2|wfCut==3, wfCut==1|wfCut==3];
+sePtn = (1.0+faultOffset/wellGridSize)*sePtn;
 [wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,'sePtn',sePtn);
 
 % Create fault points

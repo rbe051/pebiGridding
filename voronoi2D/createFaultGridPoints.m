@@ -219,7 +219,7 @@ function [Pts, gridSpacing, circCenter, circRadius, f2c,f2cPos, c2f,c2fPos] = ..
     circCenter = interFaultLine(faultLine, fh, fracDs,sePtn);
     numOfFracPts = size(circCenter,1)-1;
     
-    % Test faultLine
+    % Test if faultLine is to short
     if numOfFracPts == 1
       d = sqrt(sum((circCenter(2,:)-circCenter(1,:)).^2, 2));
       if d < 0.8*fh((circCenter(2,:)+circCenter(1,:))/2);

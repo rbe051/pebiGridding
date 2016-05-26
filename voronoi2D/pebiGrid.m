@@ -116,7 +116,13 @@ wellLines                 = opt.wellLines;
 [wellLines,  ~, wfCut]    = splitAtInt(opt.wellLines, opt.faultLines);
 
 % Create well Points
-[wellPts, ~] = createWellGridPoints(wellLines, wellGridSize,'wfCut', wfCut);
+bisectPnt = (faultGridSize.^2 - (circleFactor*faultGridSize).^2 ...
+            + (circleFactor*faultGridSize).^2) ./(2*faultGridSize);
+faultOffset = sqrt((circleFactor*faultGridSize).^2 - bisectPnt.^2);
+sePtn = [wfCut==2|wfCut==3, wfCut==1|wfCut==3];
+sePtn = (1.0+faultOffset/wellGridSize)*sePtn;
+[wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,'sePtn',sePtn);
+
 
 % create distance functions
 if wellRef && ~isempty(wellPts)
