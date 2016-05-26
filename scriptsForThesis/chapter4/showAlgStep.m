@@ -35,22 +35,25 @@ G = compositePebiGrid(dFault,[1,1],'wellLines',well,'faultLines',fault,...
 figure()                    
 plotGrid(G,'facecolor','none')
 axis equal tight off
-print('../../../../master/thesis/fig/ch03/showAlgoGrid','-depsc')
-
+print('../../../../master/thesis/fig/ch04/showAlgoGrid','-depsc')
 
 %% Plotting: paste before remove conflict points
+color = get(gca,'colororder');
 orange = [0.8500,    0.3250,    0.0980];
 blue   = [0 ,   0.4470,    0.7410];
 plot(F.f.pts(:,1),F.f.pts(:,2),'.','color',orange,'markersize',15);
 plot(wellPts(:,1),wellPts(:,2),'.','color',blue,'markersize',15);
-print('../../../../master/thesis/fig/ch03/showAlgoWellAndFaultPts','-depsc')
+f = F.l.f([F.l.fPos([wfCut==2|wfCut==3;false]);F.l.fPos([false;wfCut==1|wfCut==3])-1]);
+plot(F.f.pts(f,1), F.f.pts(f,2),'.','color',color(1,:),'markersize',15)
+print('../../../../master/thesis/fig/ch04/showAlgoWellAndFaultPts','-depsc')
 a = plot(resPtsInit(:,1), resPtsInit(:,2),'.k','markersize',15);
-print('../../../../master/thesis/fig/ch03/showAlgoWellAndFaultPtsAndResPts','-depsc')
+print('../../../../master/thesis/fig/ch04/showAlgoWellAndFaultPtsAndResPts','-depsc')
 delete(a)
 a = plot(resPts(:,1), resPts(:,2),'.k','markersize',15);
-print('../../../../master/thesis/fig/ch03/showAlgoWellAndFaultPtsAndResPtsRef','-depsc')
+print('../../../../master/thesis/fig/ch04/showAlgoWellAndFaultPtsAndResPtsRef','-depsc')
+
 
 %% Plotting: paste after remove conflict points
 delete(a)
 a = plot(resPts(:,1), resPts(:,2),'.k','markersize',15);
-print('../../../../master/thesis/fig/ch03/showAlgoWellAndFaultPtsAndResPtsRem','-depsc')
+print('../../../../master/thesis/fig/ch04/showAlgoWellAndFaultPtsAndResPtsRem','-depsc')
