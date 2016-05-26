@@ -1,14 +1,17 @@
 clear; close all
-
+addpath('../../voronoi3D/')
+addpath('../../../vem/mat/')
+addpath('../')
+addpath('../../../distmesh/')
 %% sett geometry
-gridBranetsEtAl;
+load('gridBranets');
 
 %% calculate fault intersections
-[flt, fCut, fwCut] = splitAtInt(flt, {});
+[fault, fCut, ~] = splitAtInt(fault, {});
 
 %% Create fault seeds
 fGs = max(max(bdr))/70;
-F = createFaultGridPoints(flt, fGs,'fCut',fCut,'fwCut', fwCut);
+F = createFaultGridPoints(fault, fGs,'fCut',fCut);
 figure(); hold on
 plot(F.f.pts(:,1), F.f.pts(:,2),'.','markersize',15);
 
@@ -28,7 +31,6 @@ plot(F.f.pts(:,1), F.f.pts(:,2),'.','markersize',15);
 % set domain function
 
 rectangle = [min(bdr); max(bdr)];   
-
 % Add wells an faults as fixed points
 fixedPts = [F.f.pts;bdr];
 uni = @(p,varargin) 2*ones(size(p,1),1);
@@ -50,7 +52,11 @@ pts = [F.f.pts;rPts];
 G = clippedPebi2D(pts,bdr);
 
 %% Plot grid
-plotGrid(G)
+plotGrid(G,'facecolor','none')
 axis equal off tight
-%plot(F.f.pts(:,1), F.f.pts(:,2),'.','markersize',15)
-%plotLinePath(flt)
+% plot(F.f.pts(:,1), F.f.pts(:,2),'.','markersize',15)
+
+plotLinePath(fault,'color','k','linewidth',1)
+
+%% Save plot
+%print('../../../../master/thesis/fig/ch06/barnetsEtAlGrid','-depsc');
