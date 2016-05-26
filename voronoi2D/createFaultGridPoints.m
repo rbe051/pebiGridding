@@ -462,16 +462,20 @@ function [F] = fixIntersections(F,fh, circFac)
   reN = any(p - conj(p)==0,2);
   p = p(reN,:);
   fId = fId(reN);
+
   if any(~reN)
     circNum = rldecode(1:size(F.c.CC,1), diff(F.c.fPos),2);
     mC = circNum(map(~reN));
     %mC = unique(mC, 'stable');
-    [mC,~,IC] = intersect(mC, c);
-    mC = [mC, c(IC + (-1+2*bitget(IC,1)))];
+    [mC,~,IC] = intersect(mC, circ(:,1:2));
+    m = size(circ,1);
+    mC = [mC, circ(mod(IC+m-1,2*m)+1)]; %c(IC + (-1+2*bitget(IC,1)))];
+    
     mC = unique(sort(mC,2),'rows');
     F = mergeCirc(F,mC,fh,circFac);
 
     F = fixIntersections(F,fh, circFac);
+
     return
   end
   
@@ -600,7 +604,7 @@ function [F] = mergeCirc(F,c,fh,circFac)
                  c';N(:,3)';c';N(:,3)'],2,[]);
   F.f.c = [F.f.c; f2c(:)];
   
-  F.c.fPos = [F.c.fPos; F.c.fPos(end) + (4:4:4*numel(c))'];
+  %F.c.fPos = [F.c.fPos; F.c.fPos(end) + (4:4:4*numel(c))'];
   f = (size(F.f.pts,1)-size(newPts,1)+1: size(F.f.pts,1))';
   F.c.f = [F.c.f; f];
   
@@ -608,6 +612,8 @@ function [F] = mergeCirc(F,c,fh,circFac)
   cf = reshape(N',[],1);
   cf = repmat(cf,1,2);
   cf = reshape(cf',[],1);
+  [cf,I] = sort(cf); % we need to sort; if circ 6 is empty fPos(cf) both fPos(6) and fPos(8) maps to the same position
+  f = f(I);
   F.c.f = insertVec(F.c.f,f,F.c.fPos(cf));
   
   
