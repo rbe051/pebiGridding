@@ -30,6 +30,16 @@ function [wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize, varargin
 %                   If the value is 3 both the starts and end point is 
 %                   removed.
 %
+%   sePtn           - OPTIONAL.
+%                   Default vaule array of zeros, Array of length equal the
+%                   number of well x 2 ([s,e]). Each row gives the start 
+%                   and end position of the well interpolation. The 
+%                   position is relative the steplength. If 
+%                   s=ones(numel(wellLines),1) all wells will start their 
+%                   first well site one step length from the start of the
+%                   well paths. Be carefull when using both wfCut and sePts
+%                   as the effects adds up. 
+%
 % RETURNS:
 %   wellPts         Array of all generated points.
 %   wGs             Distance between consecutive well points.
@@ -52,10 +62,11 @@ function [wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize, varargin
 %}
 
 % load options
-opt   = struct('wfCut',zeros(numel(wellLines),1));
+opt   = struct('wfCut',zeros(numel(wellLines),1),...
+               'sePtn', zeros(numel(wellLines),2));
 opt   = merge_options(opt,varargin{:});
 wfCut = opt.wfCut;
-
+sePtn = opt.sePtn;
 wGs     = [];
 wellPts = [];
 for i = 1:numel(wellLines)  % create well points
@@ -63,9 +74,9 @@ for i = 1:numel(wellLines)  % create well points
   
   if (size(wellLine,1) == 1)
       p = wellLine;
-      wellSpace = wellGridSize*(1-10^-6);
+      wellSpace = wellGridSize;
   else
-      [p, ~] = eqInterpret(wellLine, wellGridSize, [0;0]);
+      [p, ~] = eqInterpret(wellLine, wellGridSize, sePtn(i,:));
       wellSpace = sqrt(sum(diff(p,1,1).^2,2));
       wellSpace = [wellSpace(1);wellSpace;wellSpace(end)];
       wellSpace = min([wellSpace(1:end-1), wellSpace(2:end)],[],2);

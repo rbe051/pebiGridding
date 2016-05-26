@@ -52,8 +52,10 @@ for i = 1:numel(L1)
   % Split line
   splitLines = [splitLines,newLine];
   l2Pos      = linePos - cumsum(ones(size(linePos,1),1)) +1;
-  linePos    = repmat(linePos, 1,numel(k));
-  [~, kLine] = max(bsxfun(@ge,linePos,k'),[],1);
+  %linePos    = repmat(linePos, 1,numel(k));
+  %[~, kLine] = max(bsxfun(@ge,linePos,k'),[],1);
+  l2Pos    = repmat(l2Pos, 1,numel(k));
+  [~, kLine] = max(bsxfun(@ge,l2Pos,k'),[],1);
   cutMat(i,kLine) = true;
   isCut      =[isCut;...
     [ones(numel(newLine)-1,1);endInt]+2*[startInt;ones(numel(newLine)-1,1)]];

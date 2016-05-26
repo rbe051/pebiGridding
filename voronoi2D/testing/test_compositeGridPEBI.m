@@ -205,8 +205,8 @@
 %             [0.5,0.55;0.55,0.65;0.6,0.75;0.62,0.85]};
 %                         
 % 
-% Gp = compositeGridPEBI(1/19, [1, 1], 'wellLines', wellLine,...
-%                       'mlqtMaxLevel', 2, 'mlqtLevelSteps',[0.07,0.035]');
+% Gp = compositePebiGrid(1/19, [1, 1], 'wellLines', wellLine,...
+%                       'wellGridFactor',1/2^2,'mlqtMaxLevel', 2, 'mlqtLevelSteps',[0.07,0.035]');
 % 
 % figure()
 % hold on
@@ -233,7 +233,7 @@
 %         
 % fracture = {[0.2,0.8;0.8,0.2]};
 %       
-% Gp = compositeGridPEBI([1/24,1/26/2,1/24/sqrt(2)], [1, 1], ...
+% Gp = compositePebiGrid(1/24, [1, 1], ...
 %                        'wellLines', wellLine,'faultLines',fracture,...
 %                         'circleFactor', 0.6);
 % 
@@ -242,8 +242,7 @@
 % plotGrid(Gp, 'faceColor', 'none')
 % axis equal tight off
 % hold on
-% plotFault(Gp)
-% plotWells(Gp)
+
 
 %% Wells intersecting fracture multilevel
 % close all
