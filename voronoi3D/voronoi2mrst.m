@@ -28,11 +28,13 @@ function G = voronoi2mrst(V, C, aux, name)
         localPos = unique(localPos);
         hf2NodePos   = [hf2NodePos; hf2NodePos(end)-1 + localPos(2:end)];
         facePos(i+1) = numel(hf2NodePos-1);
+
     end
     G.cells.facePos = facePos;
     
     % Find faces
-    [nodes, nodePos, ic] = uniqueFace(hf,hf2NodePos); 
+    [nodes, nodePos, ic] = uniqueFace(hf,hf2NodePos);
+
     G.faces.nodePos = nodePos;
     G.faces.nodes   = reshape(nodes', [], 1);
     G.cells.faces   = ic;
@@ -124,6 +126,11 @@ function [newHull, nodePos] = remParFaces(V, hull)
         % Merge parallel faces
         tmp     = mergeFaces(V, hull, parFace, n(1,:)');
         nf      = numel(tmp);
+        if nf ==0
+          hull    = hull(~parFace,:);
+          n       = n(~parFace,:);
+          continue
+        end
         newHull = [newHull; tmp];
         nodePos = [nodePos; nodePos(end) + nf];
         % Update hull
@@ -195,7 +202,9 @@ function [merged] = mergeFaces(V, H, F, n)
 
     end
     merged = merged([~rem(end-1);~rem(2:end-2);false;false],:);
-
+    if numel(merged)<=2 %face is a line
+      merged = [];
+    end
 %     
 %     
 %     V = bsxfun(@plus, V, x0);

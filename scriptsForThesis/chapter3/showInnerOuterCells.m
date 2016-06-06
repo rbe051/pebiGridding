@@ -68,6 +68,42 @@ axis equal off tight
 %% Save grids
 save('showInnerOuterCellsSheep','G','Gc')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Elephant
+%% Load domain
+
+mat = load('elephant.mat');
+bdr = mat.P;
+bdr = bdr/norm(bdr,'inf');
+
+plot(bdr(:,1), bdr(:,2));
+hold on
+%% Create seeds.
+n = 300;
+x = linspace(min(bdr(:,1))+1/n,max(bdr(:,1))-1/n,round(sqrt(n)));
+y = linspace(min(bdr(:,2))+1/n,max(bdr(:,2))-1/n,round(sqrt(n)));
+[X,Y] = meshgrid(x,y);
+pts = [X(:), Y(:)];
+pts = pts + 1/n*randn(size(pts));
+[keep,rem] = inpolygon(X(:),Y(:), bdr(:,1), bdr(:,2));
+pts = pts(keep&~rem,:);
+plot(pts(:,1), pts(:,2),'.','markersize',15)
+
+
+%% Create grid
+G = clippedPebi2D(pts, bdr);
+Gc = createCVD(pts, bdr);
+
+%% Plot
+plotGrid(G)
+axis equal off tight
+figure()
+plotGrid(Gc)
+axis equal off tight
+%% Save grids
+save('showInnerOuterCellsElephant','G','Gc')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Plot inner and outer cells
 bndrFace = any(Gc.faces.neighbors==0,2); 
 outer = [Gc.faces.neighbors(Gc.faces.neighbors(:,1)==0,2); ...

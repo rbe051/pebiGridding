@@ -8,7 +8,7 @@ dtB.Points = bound.Points;
 
 
 % Clip grid against boundary
-[V,C,symV] = clipGrid(dt,dtB);
+[Vext,Cext,symV] = clipGrid(dt,dtB);
 
 
 %% Add inner vertices, i.e. intersection of three bisections
@@ -16,7 +16,7 @@ dtB.Points = bound.Points;
 
 
 
-[VInt, CInt] = dt.voronoiDiagram();
+[VInt, CInt] = voronoin(p);%dt.voronoiDiagram();
 % Remove points outside domain
 keep = [false;~isnan(bound.pointLocation(VInt(2:end,:)))];
 % keep = [1+0.5*sin(pi*VInt(:,1))>VInt(:,3)&...
@@ -29,20 +29,25 @@ newIdx = zeros(size(VInt,1),1);
 newIdx(keepNum) = (1:size(VInt,1))';
 CInt = cellfun(@(c) newIdx(intersect(c,keepNum))', CInt,'uniformOutput',false);
 ni = size(VInt,1);
-V = [VInt;V];
-symV = [cell(size(VInt,1),1);symV];
-C = cellfun(@(cint,cext) [cint,cext+ni], CInt, C,'uniformOutput',false) ;
+V = [VInt;Vext];
+symV = [zeros(size(VInt,1),3);symV];
+C = cellfun(@(cint,cext) [cint,cext+ni], CInt, Cext,'uniformOutput',false) ;
 
-% for i = 1:numel(C)
-%     if numel(C{i})>2
-%     hull = convhulln(V(C{i},:));
-%         patch('Vertices', V(C{i},:), 'faces', hull,'facecolor','y')
-%     end
-% end
-[V,IA,IC] = uniquetol(V,50*eps,'byRows',true);
+
+[V,IA,IC] = uniquetol(V,100*eps,'byRows',true);
 symV = symV(IA);
 C = cellfun(@(c) unique(IC(c))', C,'UniformOutput',false);
 
+% color = get(gca,'ColorOrder');
+% nc = size(color,1);
+% for i = 1:numel(C)
+% if numel(C{i})>2
+% hull = convhulln(V(C{i},:));
+% patch('Vertices', V(C{i},:), 'faces', hull,'facecolor',color(mod(i,nc)+1,:),'facealpha',0.3)
+% a = plot3(V(C{i},1),V(C{i},2),V(C{i},3),'.','markersize',20);
+% delete(a)
+% end
+% end
 G = voronoi2mrst(V,C, false(numel(C),1),'pebi');
 
 end

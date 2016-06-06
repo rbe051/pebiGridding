@@ -77,6 +77,9 @@ for i = 1:numel(wellLines)  % create well points
       wellSpace = wellGridSize;
   else
       [p, ~] = eqInterpret(wellLine, wellGridSize, sePtn(i,:));
+      if isempty(p)
+        continue
+      end
       wellSpace = sqrt(sum(diff(p,1,1).^2,2));
       wellSpace = [wellSpace(1);wellSpace;wellSpace(end)];
       wellSpace = min([wellSpace(1:end-1), wellSpace(2:end)],[],2);

@@ -1,25 +1,27 @@
-function [G,optPts,f,g] = createCVD(pts,bnd)
+function [G,optPts,f,g] = createCVD(pts,bnd,varargin)
 
- dt = delaunayTriangulation(bnd);
-% row1 = [linspace(0.165,0.835,3)',repmat(0.165,3,1)];
-% row2 = [linspace(.12,.88,4)',repmat(0.5,4,1)];
-% row3 = [linspace(0.165,0.835,3)',repmat(0.835,3,1)];
-% pts = [row1;row2;row3];
+opt = struct('fixedPts', [],...
+             'rho',     @(pts) ones(size(pts,1),1));
+opt = merge_options(opt,varargin{:});
+fixedPts = opt.fixedPts;
+rho = opt.rho;
 
+nf = size(fixedPts,1);
 
-F = @(pts) objFunc(pts, bnd);
+dt = delaunayTriangulation(bnd);
+p = [fixedPts;pts];
+F = @(pts) objFunc(pts, bnd,nf,rho);
 
-pts = reshape(pts',[],1);
-[optPts,f,g] = lbfgs(pts, F, dt,'tol',1e-2,'storedVec',10);
+p = reshape(p',[],1);
+[optPts,f,g] = lbfgs(p, F, dt,'tol',1e-5,'storedVec',7);
 optPts = reshape(optPts,2,[])';
-
 
 G = clippedPebi2D(optPts, bnd);
 
 end
 
 
-function [f, g] = objFunc(p, bnd)
+function [f, g] = objFunc(p, bnd,nf,rho)
     pts = reshape(p,2,[])';
 
     G = clippedPebi2D(pts, bnd);
@@ -27,12 +29,12 @@ function [f, g] = objFunc(p, bnd)
     G = computeGeometry(G);
     G = mrstGridWithFullMappings(G);
 
-    rho = @(x) ones(size(x,1),1);
+
     intFun = @(x,i) sum(repmat(rho(x),1,2).*(x-repmat(pts(i,:),size(x,1),1)).^2,2);
     f = sum(polygonInt_v2(G,1:G.cells.num, intFun,7));
 
-    massFun = @(x,i) ones(size(x,1),1);
+    massFun = @(x,i) rho(x);
     masses = polygonInt_v2(G,1:G.cells.num,massFun,7);
     g = reshape((2*repmat(masses,1,2).*(pts - G.cells.centroids))',[],1);
-
+    g(1:2*nf) = 0;
 end

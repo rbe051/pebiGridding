@@ -116,11 +116,17 @@ wellLines                 = opt.wellLines;
 [wellLines,  ~, wfCut]    = splitAtInt(opt.wellLines, opt.faultLines);
 
 % Create well Points
-bisectPnt = (faultGridSize.^2 - (circleFactor*faultGridSize).^2 ...
-            + (circleFactor*faultGridSize).^2) ./(2*faultGridSize);
-faultOffset = sqrt((circleFactor*faultGridSize).^2 - bisectPnt.^2);
 sePtn = [wfCut==2|wfCut==3, wfCut==1|wfCut==3];
+if wellRef
+  fLen = wellGridSize*faultGridFactor*1.2;  
+else
+  fLen = faultGridSize;
+end
+bisectPnt = (fLen.^2 - (circleFactor*fLen).^2 ...
+            + (circleFactor*fLen).^2) ./(2*fLen);
+faultOffset = sqrt((circleFactor*fLen).^2 - bisectPnt.^2);
 sePtn = (1.0+faultOffset/wellGridSize)*sePtn;
+
 [wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,'sePtn',sePtn);
 
 
@@ -130,8 +136,8 @@ if wellRef && ~isempty(wellPts)
                   min(1.2*exp(pdist2(x,wellPts)/wellEps),[],2));
     hfault = @(x) wellGridSize*faultGridFactor*hres(x);
 else
-hres   = @(p) constFunc(p)/wellGridFactor;
-hfault = @(p) constFunc(p)*faultGridSize;
+  hres   = @(p) constFunc(p)/wellGridFactor;
+  hfault = @(p) constFunc(p)*faultGridSize;
 end
 
 % Create fault points

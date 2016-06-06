@@ -417,7 +417,10 @@ function [F] = fixIntersections(F,fh, circFac)
   
   % Find shared circle
   [neigh,neighPos] = findNeighbors(circ(:,1),F);%F.c.f,F.c.fPos, F.f.c,F.f.cPos);
-  assert(all(diff(neighPos)==2));
+  if any(~all(diff(neighPos)==2))
+    warning('Something went wrong. Can not guarantee conformity')
+    return
+  end
   
   neigh  = reshape(neigh,2,[])';
   shared = 2*any(bsxfun(@eq, neigh, circ(:,2)),2) ...
@@ -577,11 +580,22 @@ function [F] = mergeCirc(F,c,fh,circFac)
   F.c.f = F.c.f + I4(F.c.f);
   
   
-  LIA = ismember(F.l.f,rf);
+
+  
+  [~,I] = sort(F.l.f);
+  id = (1:numel(F.l.f))';
+  IC = zeros(numel(F.l.f),1);
+  IC(I) = id;
+  LIA = ismember(F.l.f(I),rf);
   sub = cumsum(LIA);
+  sub = sub(IC);
+  LIA = LIA(IC);
+  
   F.l.f = F.l.f - sub;
+  
   F.l.f(LIA) = [];
-  F.l.fPos(2:end) = F.l.fPos(2:end) - sub(F.l.fPos(2:end)-1);
+  sub2 = cumsum(LIA);
+  F.l.fPos(2:end) = F.l.fPos(2:end) - sub2(F.l.fPos(2:end)-1);
   
   F.c.lPos = F.c.lPos + I1;
   F.c.lPos(rc+1) = [];

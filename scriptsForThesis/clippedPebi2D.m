@@ -18,17 +18,10 @@ for s = 1:size(p,1)
     n = bsxfun(@rdivide, n,sqrt(sum(n.^2,2)));
     x0 =bsxfun(@plus, p(E(NC),:), p(s,:))/2;
     
-    symT = mat2cell(-ones(size(bnd,1),2),ones(size(bnd,1),1),2);
-    
-    if s == 5
-      disp('s')
-    end
-    
-    [newVertex, ~] = clipPolygon(bnd, n, x0, symT,[], bisect);
-    [a,IA,IC] = uniquetol(newVertex,50*eps,'byRows',true);
-    if size(IA,1)~=size(IC,1)
-      disp('asdf')
-    end
+    symT = [-ones(size(bnd,1),3)];
+
+    [newVertex, ~] = clipPolygon(bnd, n, x0, symT, bisect,'noSym',true);
+  
     keep = inpolygon(newVertex(:,1), newVertex(:,2), bnd(:,1), bnd(:,2));
     newVertex = newVertex(keep,:); % The clipPolygon routine might return
     if isempty(newVertex)          % vertexes outside the domain. The part
@@ -76,7 +69,7 @@ for i = 1:G.faces.num
 end
 
 G.griddim = 2;
-
+G.type = {'ClippedPebiGrid2D'};
 G = sortEdges(G);
 end
 

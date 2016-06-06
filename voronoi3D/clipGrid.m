@@ -15,7 +15,7 @@ s = dsearchn(dt.Points,sum(bound.Points(bound.ConnectivityList(1,:),:)/boundDim,
 
 Q = [1, s];
 V = [];
-symV = cell(0);
+symV = [];
 C = cell(size(dt.Points,1),1);
 CT = cell(numel(C),1);
 CT{s} = 1;
@@ -37,13 +37,20 @@ while ~isempty(Q)
     x0 =[bsxfun(@plus, dt.Points(E(NC),:), dt.Points(s,:))/2; bisectX0];
 
 
-    symT = {-find(any(bound.ConnectivityList==bound.ConnectivityList(t,1),2)); ...
-            -find(any(bound.ConnectivityList==bound.ConnectivityList(t,2),2)); ...
-            -find(any(bound.ConnectivityList==bound.ConnectivityList(t,3),2))};
-
+    %symT = [-find(any(bound.ConnectivityList==bound.ConnectivityList(t,1),2))'; ...
+    %        -find(any(bound.ConnectivityList==bound.ConnectivityList(t,2),2))'; ...
+    %        -find(any(bound.ConnectivityList==bound.ConnectivityList(t,3),2))';];
+    tri2 = bound.ConnectivityList(NT,:);
+    tri2 = repmat(tri2,3,1);
+    tri1 = repmat(bound.ConnectivityList(t,:),9,1);
+    tri1 = reshape(tri1,3,9)';
     
+    IA = any(tri2==tri1,2);
+    I  = mod(find(IA)-1,3)+1;
+    symT = -[repmat(t,3,1), reshape(NT(I),2,3)'];
+
     [newVertex, symT] = clipPolygon(bound.Points(bound.ConnectivityList(t,:),:),...
-                                    n,x0,symT,symV,bisect);
+                                    n,x0,symT,bisect);
     if isempty(newVertex)
       continue
     end
@@ -63,8 +70,7 @@ end
 function NT = findNeighbours(V, t)
     VT = V(t,:);
     V  = [V(1:t-1,:);nan,nan,nan;V(t+1:end,:)];
-    NT = [t;...
-          find(sum(ismember(V,VT([1,2])),2)==2);...
+    NT = [find(sum(ismember(V,VT([1,2])),2)==2);...
           find(sum(ismember(V,VT([2,3])),2)==2);...
           find(sum(ismember(V,VT([3,1])),2)==2)];
 end
@@ -81,7 +87,6 @@ end
 
 function [Q, CT] = updateQue(Q, symV, CT, E, NC, s, t,tmin)
     % Find possible new cells
-    symV = cell2mat(symV);
     bNew = unique(symV(symV>0));
     tNew = -unique(symV(tmin<=symV & symV<0));
     for i = 1:numel(bNew)
@@ -107,8 +112,8 @@ function [V, C, symV] = cleanUpGrid(V, C,symV)
 %     CO = C;
 %     C = cellfun(@(c) unique(IC(c)'), C,'UniformOutput',false);
 %     V = V(IA,:);
-    [V,IA,IC] = uniquetol(V,50*eps,'byRows',true);
-    symV = symV(IA);
+    [V,IA,IC] = uniquetol(V,1e-10,'byRows',true);
+    symV = symV(IA,:);
     C = cellfun(@(c) unique(IC(c))', C,'UniformOutput',false);
     
 end

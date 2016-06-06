@@ -12,7 +12,8 @@ boundary = [0,0,0;  ...
             0,1,1]; ...
 
 %% set options
-n = [100, 500, 1000];
+%n = [100, 500, 1000];
+n = 20;
 varargin = {'storedVec', 10, 'tol' , 1e-6};
 
 %% Generate grid
