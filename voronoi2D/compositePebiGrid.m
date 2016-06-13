@@ -1,4 +1,4 @@
-function [G,F] = compositePebiGrid(resGridSize, pdims, varargin)
+function [G,F] = compositePebiGrid(celldim, pdims, varargin)
 % Construct a 2D composite Pebi grid. A cartesian background grid that is 
 % refined around faults and wells.
 %
@@ -7,8 +7,8 @@ function [G,F] = compositePebiGrid(resGridSize, pdims, varargin)
 %   G = compositePebiGrid(...,'Name1',Value1,'Name2',Value2,...)
 %
 % PARAMETERS
-%   resGridSize       - Size of the reservoir grid cells, in units of
-%                       meters. 
+%   resGridSize       - [xSize,ySize] Size of the reservoir grid cells in x
+%                       and y direction.
 %   pdims             - Vector, length 2, [xmax, ymax], of physical size in
 %                       units of meters of the computational domain. 
 %
@@ -104,25 +104,33 @@ opt = struct('wellLines',       {{}}, ...
              'circleFactor',    0.6,  ...
              'fullFaultEdge',   1,     ...             
              'protLayer',false, ...
-             'protD', {{@(p) ones(size(p,1),1)*resGridSize/10}});         
+             'protD', {{@(p) ones(size(p,1),1)*celldim/10}});         
 
 opt = merge_options(opt, varargin{:});
 circleFactor = opt.circleFactor;
 
 % Set grid sizes
-wellGridSize   = resGridSize*opt.wellGridFactor;
-faultGridSize  = resGridSize*opt.faultGridFactor;
+wellGridSize   = min(celldim)*opt.wellGridFactor;
+faultGridSize  = min(celldim)*opt.faultGridFactor;
 mlqtMaxLevel   = opt.mlqtMaxLevel;
 mlqtLevelSteps = opt.mlqtLevelSteps;
 
 % Test input
-assert(resGridSize>0);
+
 assert(numel(pdims)==2);
 assert(all(pdims>0 ));
 assert(wellGridSize>0);
 assert(mlqtMaxLevel>=0);
 assert(faultGridSize>0);
 assert(0.5<circleFactor && circleFactor<1);
+
+if ~all(celldim > 0),
+   error('CELLDIM must be positive');
+end
+if numel(celldim)~=2
+  error('CELLDIM must have 2 elements')
+end
+
 
 % Load faults and Wells
 faultLines                = opt.faultLines;
@@ -156,8 +164,8 @@ F = createFaultGridPoints(faultLines, faultGridSize, 'circleFactor', circleFacto
                           'fCut',fCut,'fwCut', fwCut);
 
 % Create reservoir grid
-dx = pdims(1)/ceil(pdims(1)/resGridSize);
-dy = pdims(2)/ceil(pdims(2)/resGridSize);
+dx = pdims(1)/ceil(pdims(1)/celldim(1));
+dy = pdims(2)/ceil(pdims(2)/celldim(2));
 vx = 0:dx:pdims(1);
 vy = 0:dy:pdims(2);
 
@@ -170,7 +178,7 @@ if ~isempty(wellPts)
     res = {};
     varArg = {'level', 1, 'maxLev', mlqtMaxLevel, 'distTol', mlqtLevelSteps};
     for i = 1:size(resPtsInit,1)
-        res = [res; mlqt(resPtsInit(i,:), wellPts, resGridSize, varArg{:})];
+        res = [res; mlqt(resPtsInit(i,:), wellPts, celldim, varArg{:})];
     end
     resPts = vec2mat([res{:,1}],2);
     %resGridSize = 0.5*[res{:,2}]';

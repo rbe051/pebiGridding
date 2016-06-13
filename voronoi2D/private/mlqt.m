@@ -27,8 +27,8 @@ function [res] = mlqt(cellCenter, bndr, cellSize, varargin)
     
     
     % Test input
-    assert(cellSize>0);
-    assert(size(opt.distTol,2) ==1 && size(opt.distTol,1) >0)
+    assert(all(cellSize>0));
+    assert(size(opt.distTol,1) >0)
     
     
     %% Is recursion finished? 
@@ -52,13 +52,13 @@ function [res] = mlqt(cellCenter, bndr, cellSize, varargin)
     
     n = size(bndr,1);
     repPnt = repmat(cellCenter,n,1);
-    if any(max(abs(repPnt-bndr),[],2) < distTol) % Should cell be refined?
+    if any(all(bsxfun(@le, abs(repPnt-bndr), distTol),2)) % Should cell be refined?
         shift = cellSize/4;
         varArg = {'level', level+1, 'maxLev', maxLev, 'distTol', distNext};
-        res = [mlqt(cellCenter + [shift,  shift], bndr, cellSize/2, varArg{:});...
-               mlqt(cellCenter + [shift, -shift], bndr, cellSize/2, varArg{:});...
-               mlqt(cellCenter + [-shift,-shift], bndr, cellSize/2, varArg{:});...
-               mlqt(cellCenter + [-shift, shift], bndr, cellSize/2, varArg{:})];            
+        res = [mlqt(cellCenter + [shift(1),  shift(2)], bndr, cellSize/2, varArg{:});...
+               mlqt(cellCenter + [shift(1), -shift(2)], bndr, cellSize/2, varArg{:});...
+               mlqt(cellCenter + [-shift(1),-shift(2)], bndr, cellSize/2, varArg{:});...
+               mlqt(cellCenter + [-shift(1), shift(2)], bndr, cellSize/2, varArg{:})];            
     else
         res = {cellCenter, cellSize};
     end

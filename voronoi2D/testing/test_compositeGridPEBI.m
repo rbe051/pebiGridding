@@ -1,4 +1,13 @@
-% Multiple fractures. From Fung et.al 15.
+%% Different grid dims
+close all
+w = {[0.3,0.3;0.7,0.5]};
+
+G = compositePebiGrid([0.2,0.05],[1,1],'welllines',w,'mlqtMaxLevel',3,'wellGridFactor',0.1);
+
+plotGrid(G)
+
+
+%% Multiple fractures. From Fung et.al 15.
 % close all
 % x = 0.2:0.05:0.8;
 % l = {[0.65,0.1;0.65,0.926],...
