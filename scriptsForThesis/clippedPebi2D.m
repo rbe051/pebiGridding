@@ -22,6 +22,8 @@ for s = 1:size(p,1)
 
     [newVertex, ~] = clipPolygon(bnd, n, x0, symT, bisect,'noSym',true);
   
+    newVertex = floor(newVertex*1e10)/1e10;
+    newVertex = unique(newVertex,'rows','stable');
     keep = inpolygon(newVertex(:,1), newVertex(:,2), bnd(:,1), bnd(:,2));
     newVertex = newVertex(keep,:); % The clipPolygon routine might return
     if isempty(newVertex)          % vertexes outside the domain. The part
@@ -33,7 +35,7 @@ for s = 1:size(p,1)
     
 end
 
-[V,IA,IC] = uniquetol(V,50*eps,'byRows',true);
+[V,IA,IC] = uniquetol(V,1e-9,'byRows',true);
 
 G.cells.num = numel(C);
 G.cells.facePos = cumsum([1; cellfun(@numel, C)]);

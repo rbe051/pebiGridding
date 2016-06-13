@@ -55,6 +55,24 @@ function [G,F] = compositePebiGrid(resGridSize, pdims, varargin)
 %                       removed. This will guarantee that faults is traced
 %                       by edes in the  grid.
 %
+%   protLayer           - OPTIONAL.
+%                       Default set to false. If set to true a protection layer
+%                       is added on both sides of the well
+%                       .          .             .  Protection Layer
+%                                                   protD(dist between points)
+%                       .----------.-------------.  Well path
+%     
+%                       .          .             .  Protection Layer
+%     
+%    protD              - OPTIONAL.
+%                       Default value wellGridSize/10. Cell array of Functions.
+%                       The array should have either one function or one 
+%                       function for  each well path.
+%                       The functions give the distance from well sites 
+%                       and protection sites. The function is evaluated along 
+%                       the well path such that protD(0) is the start of the 
+%                       fault while protD(1) is the end of the fault.
+%
 % RETURNS:
 %   G                - Valid grid definition.  
 %                        The fields
@@ -84,7 +102,9 @@ opt = struct('wellLines',       {{}}, ...
              'faultLines',      {{}}, ...
              'faultGridFactor', 1,  ...
              'circleFactor',    0.6,  ...
-             'fullFaultEdge',   1);         
+             'fullFaultEdge',   1,     ...             
+             'protLayer',false, ...
+             'protD', {{@(p) ones(size(p,1),1)*resGridSize/10}});         
 
 opt = merge_options(opt, varargin{:});
 circleFactor = opt.circleFactor;
@@ -108,7 +128,17 @@ assert(0.5<circleFactor && circleFactor<1);
 faultLines                = opt.faultLines;
 wellLines                 = opt.wellLines;
 [faultLines, fCut, fwCut] = splitAtInt(faultLines, wellLines);
-[wellLines,  ~, wfCut]    = splitAtInt(opt.wellLines, opt.faultLines);
+[wellLines,  wCut, wfCut,IC]    = splitAtInt(opt.wellLines, opt.faultLines);
+
+% Load protection layer
+protD = opt.protD;
+if numel(protD) == 1
+  protD = repmat(protD,numel(wellLines),1);num2cell(protD, 2);
+else
+  assert(numel(protD) == numel(opt.wellLines));
+  protD = protD(IC);
+end
+
 
 
 % Create well points
@@ -117,7 +147,9 @@ bisectPnt = (faultGridSize.^2 - (circleFactor*faultGridSize).^2 ...
 faultOffset = sqrt((circleFactor*faultGridSize).^2 - bisectPnt.^2);
 sePtn = [wfCut==2|wfCut==3, wfCut==1|wfCut==3];
 sePtn = (1.0+faultOffset/wellGridSize)*sePtn;
-[wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,'sePtn',sePtn);
+[wellPts, wGs,protPts,pGs] = createWellGridPoints(wellLines, wellGridSize,'sePtn', ...
+                                              sePtn,'wCut',wCut,'protLayer',opt.protLayer,...
+                                              'protD',protD);
 
 % Create fault points
 F = createFaultGridPoints(faultLines, faultGridSize, 'circleFactor', circleFactor,...
@@ -149,11 +181,12 @@ end
 
 % Remove Conflic Points
 resPts = removeConflictPoints2(resPts, wellPts,  wGs);
+resPts = removeConflictPoints2(resPts, protPts,  pGs);
 resPts = removeConflictPoints2(resPts, F.f.pts, F.f.Gs);
 resPts = removeConflictPoints2(resPts, F.c.CC, F.c.R);
 
 % Create Grid
-Pts = [F.f.pts; wellPts; resPts];
+Pts = [F.f.pts; wellPts;protPts; resPts];
 G = triangleGrid(Pts);
 G = pebi(G);
 

@@ -1,4 +1,4 @@
-function [splitL1, L1Cut, L1L2Cut] = splitAtInt(L1, L2)
+function [splitL1, L1Cut, L1L2Cut, IC] = splitAtInt(L1, L2)
 % Split paths at all intersections. 
 %
 % SYNOPSIS:
@@ -67,14 +67,22 @@ function [splitL1, L1Cut, L1L2Cut] = splitAtInt(L1, L2)
 %}
 splitL1 = cell(0);
 tmpCut    = cell(0);
-
+IC = 1:numel(L1);
+cutVec = zeros(numel(L1),1);
 for i = 1:numel(L1)
-  [splitL1{i},~,tmpCut{i}] = splitLines(L1(i),L1([1:i-1,i+1:end]));
+  [splitL1{i},cutMat,tmpCut{i}] = splitLines(L1(i),L1([1:i-1,i+1:end]));
+  cutVec(i) = cutVec(i) + sum(sum(cutMat));
 end
+IC = repelem(IC,cutVec'+1);
+cutVec = zeros(numel(IC),1);
 
 splitL1 = horzcat(splitL1{:});
 tmpCut      = vertcat(tmpCut{:});
 [splitL1, cutId,L1L2Cut] = splitLines(splitL1, L2);
+
+cutVec = sum(cutId,2);
+IC = repelem(IC,cutVec'+1);
+
 
 L1Cut = zeros(sum(sum(cutId, 1) + 2),1); % initialize array
 numEl = 0;

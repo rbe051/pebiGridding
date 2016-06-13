@@ -15,7 +15,7 @@ s = dsearchn(dt.Points,sum(bound.Points(bound.ConnectivityList(1,:),:)/boundDim,
 
 Q = [1, s];
 V = [];
-symV = [];
+symV = cell(0);
 C = cell(size(dt.Points,1),1);
 CT = cell(numel(C),1);
 CT{s} = 1;
@@ -48,7 +48,7 @@ while ~isempty(Q)
     IA = any(tri2==tri1,2);
     I  = mod(find(IA)-1,3)+1;
     symT = -[repmat(t,3,1), reshape(NT(I),2,3)'];
-
+    symT = mat2cell(symT, ones(size(symT,1),1),3);
     [newVertex, symT] = clipPolygon(bound.Points(bound.ConnectivityList(t,:),:),...
                                     n,x0,symT,bisect);
     if isempty(newVertex)
@@ -87,6 +87,8 @@ end
 
 function [Q, CT] = updateQue(Q, symV, CT, E, NC, s, t,tmin)
     % Find possible new cells
+    symV = horzcat(symV{:})';
+    
     bNew = unique(symV(symV>0));
     tNew = -unique(symV(tmin<=symV & symV<0));
     for i = 1:numel(bNew)

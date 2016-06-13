@@ -20,14 +20,13 @@ for i = 1:size(n,1)
         p  = [];
         %IC = [];
         symP = [];
-        disp('wtf???')
         return
     elseif all(d<TOL)
       continue
     end
     p = [p(end,:);p];
     d = [d(end);  d];
-    symP = [symP(end,:); symP];
+    symP = [symP(end); symP];
 
     c1 = d(1:end-1)<TOL & d(2:end)<TOL;
     c2 = sign(d(1:end-1))~=sign(d(2:end));
@@ -78,9 +77,9 @@ end
 
 
 function [B] = intersectUnion(A, idx, b)
-    B = zeros(size(idx,1),3);
+    B = cell(size(idx,1),1);
     for i = 1:size(idx,1)
-       B(i,:) = [intersect(A(idx(i),:),A(idx(i)+1,:)),b]; 
+       B{i,:} = [intersect(A{idx(i)},A{idx(i)+1}),b]; 
     end
     
 end

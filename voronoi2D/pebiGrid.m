@@ -85,7 +85,9 @@ opt = struct('wellLines',       {{}}, ...
              'epsilon',         -1,...
              'faultLines',      {{}}, ...
              'faultGridFactor', 0.5, ...
-             'circleFactor',    0.6);  
+             'circleFactor',    0.6,...
+             'protLayer',       false, ...
+             'protD',           {{@(p) ones(size(p,1),1)*resGridSize/10}});
 
 opt          = merge_options(opt, varargin{:});
 circleFactor = opt.circleFactor;
@@ -113,7 +115,18 @@ assert(0.5<circleFactor && circleFactor<1);
 faultLines                = opt.faultLines;
 wellLines                 = opt.wellLines;
 [faultLines, fCut, fwCut] = splitAtInt(faultLines, wellLines);
-[wellLines,  ~, wfCut]    = splitAtInt(opt.wellLines, opt.faultLines);
+[wellLines,  wCut, wfCut,IC] = splitAtInt(opt.wellLines, opt.faultLines);
+
+% Load protection layer
+protD = opt.protD;
+if numel(protD) == 1
+  protD = repmat(protD,numel(wellLines),1);num2cell(protD, 2);
+else
+  assert(numel(protD) == numel(opt.wellLines));
+  protD = protD(IC);
+end
+
+
 
 % Create well Points
 sePtn = [wfCut==2|wfCut==3, wfCut==1|wfCut==3];
@@ -127,7 +140,9 @@ bisectPnt = (fLen.^2 - (circleFactor*fLen).^2 ...
 faultOffset = sqrt((circleFactor*fLen).^2 - bisectPnt.^2);
 sePtn = (1.0+faultOffset/wellGridSize)*sePtn;
 
-[wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,'sePtn',sePtn);
+[wellPts, wGs,protPts,pGs] = createWellGridPoints(wellLines, wellGridSize,'sePtn',sePtn,...
+                                                 'wCut',wCut,'protLayer',opt.protLayer,...
+                                                 'protD',protD  );
 
 
 % create distance functions
@@ -153,7 +168,7 @@ fd = @(p) drectangle(p, 0, x(1), 0, x(2));
 corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
 
 % Add wells an faults as fixed points
-fixedPts = [F.f.pts; wellPts; corners];
+fixedPts = [F.f.pts; wellPts; protPts; corners];
 
 [Pts,~,sorting] = distmesh2d(fd, hres, wellGridSize, rectangle, fixedPts);
 

@@ -112,8 +112,8 @@ pri = [F.f.pri;rPri];
 
 bdrDT = delaunayTriangulation(bdr);
 figure(); hold on
-%G = restrictedVoronoiDiagram(pts,bdrDT);
-G = voronoi3D(pts,bdr);
+G = clippedPebi3D(pts,bdrDT);
+%G = voronoi3D(pts,bdr);
 G = computeGeometry(G);
 
 %% CartGrid
@@ -208,10 +208,15 @@ view(30,25)
 
 %% Save
 figure(1)
-print('../../../../master/thesis/fig/ch06/singleFault3DExact','-depsc')
+pause(0.1)
+%print('../../../../master/thesis/fig/ch06/singleFault3DExact','-depsc')
+
 figure(2)
-print('../../../../master/thesis/fig/ch06/singleFault3DCart','-depsc')
+pause(0.1)
+%print('../../../../master/thesis/fig/ch06/singleFault3DCart','-depsc')
+
 figure(3)
-print('../../../../master/thesis/fig/ch06/singleFault3DAux','-depsc')
+pause(0.1)
+%print('../../../../master/thesis/fig/ch06/singleFault3DAux','-depsc')
 
 

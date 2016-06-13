@@ -30,7 +30,7 @@ newIdx(keepNum) = (1:size(VInt,1))';
 CInt = cellfun(@(c) newIdx(intersect(c,keepNum))', CInt,'uniformOutput',false);
 ni = size(VInt,1);
 V = [VInt;Vext];
-symV = [zeros(size(VInt,1),3);symV];
+symV = [cell(size(VInt,1),1);symV];
 C = cellfun(@(cint,cext) [cint,cext+ni], CInt, Cext,'uniformOutput',false) ;
 
 

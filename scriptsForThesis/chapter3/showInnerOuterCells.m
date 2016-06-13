@@ -79,20 +79,24 @@ bdr = bdr/norm(bdr,'inf');
 plot(bdr(:,1), bdr(:,2));
 hold on
 %% Create seeds.
+rng(3)
 n = 300;
 x = linspace(min(bdr(:,1))+1/n,max(bdr(:,1))-1/n,round(sqrt(n)));
 y = linspace(min(bdr(:,2))+1/n,max(bdr(:,2))-1/n,round(sqrt(n)));
 [X,Y] = meshgrid(x,y);
 pts = [X(:), Y(:)];
 pts = pts + 1/n*randn(size(pts));
-[keep,rem] = inpolygon(X(:),Y(:), bdr(:,1), bdr(:,2));
+ptsx = (max(x)-min(x))*rand(n,1) + min(x); 
+ptsy = (max(y)-min(y))*rand(n,1) + min(y); 
+pts = [ptsx, ptsy];
+[keep,rem] = inpolygon(ptsx ,ptsy,bdr(:,1), bdr(:,2));
 pts = pts(keep&~rem,:);
 plot(pts(:,1), pts(:,2),'.','markersize',15)
 
 
 %% Create grid
 G = clippedPebi2D(pts, bdr);
-Gc = createCVD(pts, bdr);
+[Gc,optPts,f,g] = createCVD(pts, bdr);
 
 %% Plot
 plotGrid(G)
@@ -101,7 +105,7 @@ figure()
 plotGrid(Gc)
 axis equal off tight
 %% Save grids
-save('showInnerOuterCellsElephant','G','Gc')
+save('showInnerOuterCellsElephant')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Plot inner and outer cells
