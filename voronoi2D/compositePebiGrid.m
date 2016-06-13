@@ -1,4 +1,4 @@
-function G = compositePebiGrid(resGridSize, pdims, varargin)
+function [G,F] = compositePebiGrid(celldim, pdims, varargin)
 % Construct a 2D composite Pebi grid. A cartesian background grid that is 
 % refined around faults and wells.
 %
@@ -7,8 +7,8 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 %   G = compositePebiGrid(...,'Name1',Value1,'Name2',Value2,...)
 %
 % PARAMETERS
-%   resGridSize       - Size of the reservoir grid cells, in units of
-%                       meters. 
+%   resGridSize       - [xSize,ySize] Size of the reservoir grid cells in x
+%                       and y direction.
 %   pdims             - Vector, length 2, [xmax, ymax], of physical size in
 %                       units of meters of the computational domain. 
 %
@@ -55,6 +55,24 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 %                       removed. This will guarantee that faults is traced
 %                       by edes in the  grid.
 %
+%   protLayer           - OPTIONAL.
+%                       Default set to false. If set to true a protection layer
+%                       is added on both sides of the well
+%                       .          .             .  Protection Layer
+%                                                   protD(dist between points)
+%                       .----------.-------------.  Well path
+%     
+%                       .          .             .  Protection Layer
+%     
+%    protD              - OPTIONAL.
+%                       Default value wellGridSize/10. Cell array of Functions.
+%                       The array should have either one function or one 
+%                       function for  each well path.
+%                       The functions give the distance from well sites 
+%                       and protection sites. The function is evaluated along 
+%                       the well path such that protD(0) is the start of the 
+%                       fault while protD(1) is the end of the fault.
+%
 % RETURNS:
 %   G                - Valid grid definition.  
 %                        The fields
@@ -78,25 +96,27 @@ function G = compositePebiGrid(resGridSize, pdims, varargin)
 
 % Set options
 opt = struct('wellLines',       {{}}, ...
-             'wellGridFactor',  0.5,  ...
+             'wellGridFactor',  1,  ...
              'mlqtMaxLevel',    0,    ...
              'mlqtLevelSteps',  -1,   ...
              'faultLines',      {{}}, ...
-             'faultGridFactor', 0.5,  ...
+             'faultGridFactor', 1,  ...
              'circleFactor',    0.6,  ...
-             'fullFaultEdge',   1);         
+             'fullFaultEdge',   1,     ...             
+             'protLayer',false, ...
+             'protD', {{@(p) ones(size(p,1),1)*celldim/10}});         
 
 opt = merge_options(opt, varargin{:});
 circleFactor = opt.circleFactor;
 
 % Set grid sizes
-wellGridSize   = resGridSize*opt.wellGridFactor;
-faultGridSize  = resGridSize*opt.faultGridFactor;
+wellGridSize   = min(celldim)*opt.wellGridFactor;
+faultGridSize  = min(celldim)*opt.faultGridFactor;
 mlqtMaxLevel   = opt.mlqtMaxLevel;
 mlqtLevelSteps = opt.mlqtLevelSteps;
 
 % Test input
-assert(resGridSize>0);
+
 assert(numel(pdims)==2);
 assert(all(pdims>0 ));
 assert(wellGridSize>0);
@@ -104,23 +124,48 @@ assert(mlqtMaxLevel>=0);
 assert(faultGridSize>0);
 assert(0.5<circleFactor && circleFactor<1);
 
+if ~all(celldim > 0),
+   error('CELLDIM must be positive');
+end
+if numel(celldim)~=2
+  error('CELLDIM must have 2 elements')
+end
+
+
 % Load faults and Wells
 faultLines                = opt.faultLines;
 wellLines                 = opt.wellLines;
 [faultLines, fCut, fwCut] = splitAtInt(faultLines, wellLines);
-[wellLines,  ~, wfCut]    = splitAtInt(opt.wellLines, opt.faultLines);
+[wellLines,  wCut, wfCut,IC]    = splitAtInt(opt.wellLines, opt.faultLines);
+
+% Load protection layer
+protD = opt.protD;
+if numel(protD) == 1
+  protD = repmat(protD,numel(wellLines),1);num2cell(protD, 2);
+else
+  assert(numel(protD) == numel(opt.wellLines));
+  protD = protD(IC);
+end
+
 
 
 % Create well points
-[wellPts, wGs] = createWellGridPoints(wellLines, wellGridSize,'wfCut',wfCut);
+bisectPnt = (faultGridSize.^2 - (circleFactor*faultGridSize).^2 ...
+            + (circleFactor*faultGridSize).^2) ./(2*faultGridSize);
+faultOffset = sqrt((circleFactor*faultGridSize).^2 - bisectPnt.^2);
+sePtn = [wfCut==2|wfCut==3, wfCut==1|wfCut==3];
+sePtn = (1.0+faultOffset/wellGridSize)*sePtn;
+[wellPts, wGs,protPts,pGs] = createWellGridPoints(wellLines, wellGridSize,'sePtn', ...
+                                              sePtn,'wCut',wCut,'protLayer',opt.protLayer,...
+                                              'protD',protD);
 
 % Create fault points
 F = createFaultGridPoints(faultLines, faultGridSize, 'circleFactor', circleFactor,...
                           'fCut',fCut,'fwCut', fwCut);
 
 % Create reservoir grid
-dx = pdims(1)/ceil(pdims(1)/resGridSize);
-dy = pdims(2)/ceil(pdims(2)/resGridSize);
+dx = pdims(1)/ceil(pdims(1)/celldim(1));
+dy = pdims(2)/ceil(pdims(2)/celldim(2));
 vx = 0:dx:pdims(1);
 vy = 0:dy:pdims(2);
 
@@ -133,7 +178,7 @@ if ~isempty(wellPts)
     res = {};
     varArg = {'level', 1, 'maxLev', mlqtMaxLevel, 'distTol', mlqtLevelSteps};
     for i = 1:size(resPtsInit,1)
-        res = [res; mlqt(resPtsInit(i,:), wellPts, resGridSize, varArg{:})];
+        res = [res; mlqt(resPtsInit(i,:), wellPts, celldim, varArg{:})];
     end
     resPts = vec2mat([res{:,1}],2);
     %resGridSize = 0.5*[res{:,2}]';
@@ -144,11 +189,12 @@ end
 
 % Remove Conflic Points
 resPts = removeConflictPoints2(resPts, wellPts,  wGs);
+resPts = removeConflictPoints2(resPts, protPts,  pGs);
 resPts = removeConflictPoints2(resPts, F.f.pts, F.f.Gs);
 resPts = removeConflictPoints2(resPts, F.c.CC, F.c.R);
 
 % Create Grid
-Pts = [F.f.pts; wellPts; resPts];
+Pts = [F.f.pts; wellPts;protPts; resPts];
 G = triangleGrid(Pts);
 G = pebi(G);
 
