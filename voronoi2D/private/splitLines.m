@@ -41,9 +41,9 @@ for i = 1:numel(L1)
   % Remove duplicates
   pts     = insertVec(L1{i},newPts,id+1);
   newLine =  mat2cell(pts,diff([0;j + 2*(1:numel(j))'-1;size(pts,1)]),2)';
-  arg     = {'rows';'stable'};
-  arg     = repmat(arg,size(newLine));
-  [newLine] = cellfun(@unique, newLine,arg(1,:),arg(2,:),'UniformOutput',false);
+  %arg     = {'rows';'stable'};
+  %arg     = repmat(arg,size(newLine));
+  %[newLine] = cellfun(@unique, newLine,arg(1,:),arg(2,:),'UniformOutput',false);
   numPts  = cellfun(@(c) size(c,1),newLine);
   newLine = newLine(numPts>1);
   startInt = numPts(1)==1;

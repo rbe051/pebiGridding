@@ -23,7 +23,7 @@ f3 = {[0.5-a,0.5-b; 0.5+a,0.5+b],[0.5-a,0.5+b;0.5+a,0.5-b]};
 
 
 %% Set grid parameters
-rGs = 0.1;
+rGs = [0.1,0.1];
 fGf = 1.0;
 pdims = [1,1];
 %% Create grid

@@ -57,7 +57,7 @@ function [p,t, sorting]=distmesh2d(fd,fh,h0,bbox,pfix,varargin)
 %   Copyright (C) 2004-2012 Per-Olof Persson. See COPYRIGHT.TXT for details.
 
 dptol=.001; ttol=.1; Fscale=1.2; deltat=.2; geps=.001*h0; deps=sqrt(eps)*h0;
-densityctrlfreq=30; maxIt = 2000;
+densityctrlfreq=30; maxIt = 500;
 
 % 1. Create initial distribution in bounding box (equilateral triangles)
 [x,y]=meshgrid(bbox(1,1):h0:bbox(2,1),bbox(1,2):h0*sqrt(3)/2:bbox(2,2));
@@ -81,7 +81,7 @@ while count<maxIt
   % 3. Retriangulation by the Delaunay algorithm
   if max(sqrt(sum((p-pold).^2,2))/h0)>ttol           % Any large movement?
     pold=p;                                          % Save current positions
-    t=delaunayn(p);                                  % List of triangles
+    t=delaunay(p);                                  % List of triangles
     pmid=(p(t(:,1),:)+p(t(:,2),:)+p(t(:,3),:))/3;    % Compute centroids
     t=t(feval(fd,pmid,varargin{:})<-geps,:);         % Keep interior triangles
     % 4. Describe each bar by a unique pair of nodes

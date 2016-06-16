@@ -110,12 +110,13 @@ end
 function H = removeDuplicateNodes(H)
 % Fix node uniqueness.  This is important since we use node uniqueness to
 % determine connectivity of faces.
-   TOL = 20*eps;
+   
    assert(H.nodes.num == size(H.nodes.coords, 1));
-   [nodes, ~, map] = uniquetol(H.nodes.coords, TOL,'ByRows', true);
+   H.nodes.coords = floor(H.nodes.coords*10^10)./10^10;
+   [nodes, ~, map] = unique(H.nodes.coords,'rows');
    if size(nodes, 1) < H.nodes.num,
        % map facenodes to new node numbers
-       assert(all(all(abs(nodes(map,:)-H.nodes.coords)<TOL)));
+       assert(all(all(abs(nodes(map,:)-H.nodes.coords)<10^-10)));
        H.nodes.coords     = nodes;
        H.nodes.num        = size(nodes, 1);
        H.faces.nodes(:,1) = map(H.faces.nodes(:,1));

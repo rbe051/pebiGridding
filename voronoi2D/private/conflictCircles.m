@@ -1,5 +1,5 @@
   function [I] = conflictCircles(Pts, CC, CR)
-    TOL = 500*eps;
+    TOL = 1e-12;
 
     nc = size(CC,1);
     np = size(Pts,1);

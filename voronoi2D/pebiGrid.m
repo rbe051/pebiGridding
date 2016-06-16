@@ -82,25 +82,34 @@ function G = pebiGrid(resGridSize, pdims, varargin)
 opt = struct('wellLines',       {{}}, ...
              'wellGridFactor',  0.5, ...
              'wellRefinement',  false, ...
+             'faultRefinement', true, ...
              'epsilon',         -1,...
+             'faultEps',        -1,...
              'faultLines',      {{}}, ...
              'faultGridFactor', 0.5, ...
              'circleFactor',    0.6,...
+             'faultRho',        @(x) ones(size(x,1),1),...
              'protLayer',       false, ...
              'protD',           {{@(p) ones(size(p,1),1)*resGridSize/10}});
 
 opt          = merge_options(opt, varargin{:});
 circleFactor = opt.circleFactor;
 wellRef      =  opt.wellRefinement;
+faultRef     = opt.faultRefinement;
 wellEps      = opt.epsilon;
-
+faultEps     = opt.faultEps;
 % Set grid sizes
 wellGridFactor  = opt.wellGridFactor;
 faultGridFactor = opt.faultGridFactor;
 wellGridSize    = resGridSize*wellGridFactor;
 faultGridSize   = resGridSize*faultGridFactor;
+faultRho = opt.faultRho;
+
 if wellEps<0
     wellEps = 0.25/max(pdims);
+end
+if faultEps<0
+    faultEps = 0.25/max(pdims);
 end
 
 % Test input
@@ -149,20 +158,24 @@ sePtn = (1.0+faultOffset/wellGridSize)*sePtn;
 if wellRef && ~isempty(wellPts)
     hres   = @(x) min((ones(size(x,1),1)/wellGridFactor), ...
                   min(1.2*exp(pdist2(x,wellPts)/wellEps),[],2));
-    hfault = @(x) wellGridSize*faultGridFactor*hres(x);
+    hfault = @(x) wellGridSize*faultGridFactor*hres(x)*faultRho(x);
 else
   hres   = @(p) constFunc(p)/wellGridFactor;
-  hfault = @(p) constFunc(p)*faultGridSize;
+  hfault = @(p) faultGridSize*faultRho(p);
 end
 
 % Create fault points
 F = createFaultGridPoints(faultLines, faultGridSize,'circleFactor', circleFactor,...
                           'fCut', fCut,'fwCut', fwCut, 'distFun', hfault);
 
+if faultRef && ~isempty(F.f.pts)
+  hres = @(x) min((ones(size(x,1),1)/faultGridFactor), ...
+                  min(1.2*exp(pdist2(x,F.f.pts)/faultEps),[],2));
+end
 % Create Reservoir grid points
 % set domain function
 x = pdims;
-rectangle = [0,0; x(1),x(1)];   
+rectangle = [0,0; x(1),x(2)];   
 fd = @(p) drectangle(p, 0, x(1), 0, x(2));
 % Set fixed points
 corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
@@ -170,7 +183,8 @@ corners = [0,0; 0,x(2); x(1),0; x(1),x(2)];
 % Add wells an faults as fixed points
 fixedPts = [F.f.pts; wellPts; protPts; corners];
 
-[Pts,~,sorting] = distmesh2d(fd, hres, wellGridSize, rectangle, fixedPts);
+ds = min(wellGridSize,faultGridSize);
+[Pts,~,sorting] = distmesh2d(fd, hres, ds, rectangle, fixedPts);
 
 % Distmesh change the order of all points. We undo this sorting.
 isFault = false(size(Pts,1),1); isFault(1:size(F.f.pts,1)) = true;

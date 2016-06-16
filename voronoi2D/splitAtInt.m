@@ -74,8 +74,6 @@ for i = 1:numel(L1)
   cutVec(i) = cutVec(i) + sum(sum(cutMat));
 end
 IC = repelem(IC,cutVec'+1);
-cutVec = zeros(numel(IC),1);
-
 splitL1 = horzcat(splitL1{:});
 tmpCut      = vertcat(tmpCut{:});
 [splitL1, cutId,L1L2Cut] = splitLines(splitL1, L2);
@@ -114,4 +112,17 @@ for i = 1:size(tmpCut,1)
 end
 L1Cut = L1Cut(1:numEl); % Remove values not assigned.
 
+
+%% Remove lines that are one point
+for i = 1:numel(splitL1)
+  splitL1{i} = unique(floor(splitL1{i}*10^14)/10^14,'rows');  
 end
+if numel(splitL1)>0
+  numPts  = cellfun(@(c) size(c,1),splitL1);  
+  keep = numPts>1;
+  splitL1= splitL1(keep);
+  L1Cut = L1Cut(keep);
+  L1L2Cut = L1L2Cut(keep);
+  IC = IC(keep);
+end
+

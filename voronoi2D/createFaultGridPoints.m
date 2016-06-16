@@ -398,7 +398,7 @@ end
 
 function [F] = fixIntersections(F,fh, circFac)
   assert(all(diff(F.f.cPos)==2),'all points must be created from exactly 2 circles');
-  
+
   % Find conflict circles
   I = conflictCircles(F.f.pts, F.c.CC, F.c.R);
   
@@ -419,7 +419,13 @@ function [F] = fixIntersections(F,fh, circFac)
   [neigh,neighPos] = findNeighbors(circ(:,1),F);%F.c.f,F.c.fPos, F.f.c,F.f.cPos);
   if any(~all(diff(neighPos)==2))
     warning('Something went wrong. Can not guarantee conformity')
-    return
+    remC = diff(neighPos)~=2;
+    circ(remC,:) = [];
+    remN = mcolon(neighPos([remC;false]), neighPos([false;remC])-1);
+    neigh(remN) = [];
+    neighPos = neighPos - cumsum([0;remC]);
+    neighPos(remC) = [];
+    assert(all(diff(neighPos)==2) )
   end
   
   neigh  = reshape(neigh,2,[])';
@@ -438,8 +444,19 @@ function [F] = fixIntersections(F,fh, circFac)
   line = [F.c.CC(circ(:,3),:),reshape(mean(reshape(F.c.CC(circ(:,1:2)',:),2,[]),1),[],2)];
   int  = lineCircInt(F.c.CC(circ(:,3),:),F.c.R(circ(:,3)), line);
 
+  merge = (F.c.CC(circ(:,1)) - F.c.CC(circ(:,2))).^2<(0.2*circFac*fh(F.c.CC(circ(:,1),:))).^2;
+  if any(merge)
+    
+    mC = [circ(:,1), circ(:,2)];
+    F = mergeCirc(F,mC,fh,circFac);
+
+    F = fixIntersections(F,fh, circFac);
+
+    return
+  end
   % set radius to smallest
   R = sqrt(sum((F.c.CC(circ(:,1:2),:)-[int;int]).^2,2));
+  Rold = F.c.R;
   for i = 1:numel(R)
     if R(i)<F.c.R(circ(i))
       F.c.R(circ(i)) = R(i);
@@ -467,21 +484,24 @@ function [F] = fixIntersections(F,fh, circFac)
   fId = fId(reN);
 
   if any(~reN)
+    F.c.R = Rold;
     circNum = rldecode(1:size(F.c.CC,1), diff(F.c.fPos),2);
-    mC = circNum(map(~reN));
+    mC = circNum(map(~reN));  
     %mC = unique(mC, 'stable');
     [mC,~,IC] = intersect(mC, circ(:,1:2));
     m = size(circ,1);
-    mC = [mC, circ(mod(IC+m-1,2*m)+1)]; %c(IC + (-1+2*bitget(IC,1)))];
-    
+    mC = [mC, circ(mod(IC+m-1,2*m)+1)]; %c(IC + (-1+2*bitget(IC,1)))];    
+    if size(mC,1)==1
+      mC = reshape(mC,[],2);
+    end
     mC = unique(sort(mC,2),'rows');
-    F = mergeCirc(F,mC,fh,circFac);
 
+    F = mergeCirc(F,mC,fh,circFac);
     F = fixIntersections(F,fh, circFac);
 
     return
   end
-  
+  p = real(p);
   F.f.pts(fId,:) = p;  
   nGs            = repmat(sqrt(sum(diff(p).^2,2)),1,2)';
   F.f.Gs(fId)    = reshape(nGs(:,1:2:end),[],1);
@@ -503,9 +523,6 @@ function [F] = fixIntersections(F,fh, circFac)
   F.c.f = IC(F.c.f);
   
   F.l.f = IC(F.l.f);
-  
-  
-  
   end
 
 
@@ -514,7 +531,7 @@ function [F] = mergeCirc(F,c,fh,circFac)
   C1 = c(:,1);
   C2 = c(:,2);
   newCC = (F.c.CC(C1,:) + F.c.CC(C2,:))/2;
-  newR = circFac*fh(F.c.CC(C1,:));
+  newR = 1.1*circFac*fh(F.c.CC(C1,:));
   [neigh,neighPos] = findNeighbors(rc,F);
   assert(all(diff(neighPos)==2));
 
